@@ -164,7 +164,7 @@ void	gospel_chat_list(struct t_gui_buffer *);
 int	gospel_chat_direct(u_int64_t, u_int8_t);
 int	gospel_chat_group(u_int64_t, u_int16_t);
 void	gospel_chat_log(struct chat *, const char *, ...);
-void	gospel_chat_msg(struct chat *, struct tunnel *, const void *, size_t);
+void	gospel_chat_msg(struct chat *, struct tunnel *, const char *);
 
 struct chat	*gospel_system_chat(void);
 struct chat	*gospel_chat_find_name(const char *);

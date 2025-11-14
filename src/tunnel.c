@@ -496,6 +496,7 @@ tunnel_heaven(const void *data, size_t len, u_int64_t magic, void *udata)
 {
 	struct litany_msg_data		msg;
 	struct tunnel			*tun;
+	char				line[LITANY_MESSAGE_MAX_SIZE + 1];
 
 	PRECOND(data != NULL);
 	PRECOND(len > 0);
@@ -518,7 +519,7 @@ tunnel_heaven(const void *data, size_t len, u_int64_t magic, void *udata)
 	if (msg.id == LITANY_MESSAGE_SYSTEM_ID)
 		return;
 
-	if (msg.len > sizeof(msg.data)) {
+	if (msg.len > sizeof(msg.data) || msg.len >= sizeof(line)) {
 		gospel_tunnel_log(tun,
 		    "ignoring message with invalid length (%u)", msg.len);
 		return;
@@ -526,11 +527,12 @@ tunnel_heaven(const void *data, size_t len, u_int64_t magic, void *udata)
 
 	tunnel_alive(tun);
 
-	/* XXX sanity check on text data */
-
 	switch (msg.type) {
 	case LITANY_MESSAGE_TYPE_TEXT:
-		gospel_chat_msg(tun->chat, tun, msg.data, msg.len);
+		memcpy(line, msg.data, msg.len);
+		line[msg.len] = '\0';
+		weechat_utf8_normalize(line, '?');
+		gospel_chat_msg(tun->chat, tun, line);
 		tunnel_ack_send(tun, msg.id);
 		break;
 	case LITANY_MESSAGE_TYPE_ACK:

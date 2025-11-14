@@ -318,36 +318,32 @@ gospel_chat_log(struct chat *chat, const char *fmt, ...)
  * Insert the given message to our chat buffer, prefixed by who sent it.
  */
 void
-gospel_chat_msg(struct chat *chat, struct tunnel *src, const void *data,
-    size_t len)
+gospel_chat_msg(struct chat *chat, struct tunnel *src, const char *input)
 {
 	struct t_gui_buffer		*buf;
-	size_t				namelen;
-	const char			*name, *color, *msg;
+	size_t				len, namelen;
+	const char			*name, *color;
 
 	PRECOND(chat != NULL);
 	PRECOND(src != NULL);
-	PRECOND(data != NULL);
+	PRECOND(input != NULL);
 
+	len = strlen(input);
 	if (len == 0)
 		return;
 
 	name = gospel_nick_get();
 	namelen = strlen(name);
 
-	msg = data;
-
 	if (len > namelen &&
-	    memcmp(data, name, namelen) == 0 && msg[namelen] == ':') {
+	    memcmp(input, name, namelen) == 0 && input[namelen] == ':') {
 		color = weechat_color("*red");
 	} else {
 		color = weechat_color("chat_nick");
 	}
 
 	buf = weechat_buffer_search("gospel", chat->name);
-
-	weechat_printf(buf, "%s%s\t%.*s", color,
-	    src->name, (int)len, (const char *)data);
+	weechat_printf(buf, "%s%s\t%s", color, src->name, input);
 }
 
 /*
