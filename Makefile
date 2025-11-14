@@ -12,6 +12,9 @@ CFLAGS+=-Wpointer-arith -Wcast-qual -Wsign-compare -O2 -fPIC
 CFLAGS+=-fstack-protector-all -Wtype-limits -fno-common -g
 CFLAGS+=-Iinclude
 
+CFLAGS+=$(shell pkg-config --cflags libkyrka)
+CFLAGS+=$(shell pkg-config --cflags weechat)
+
 LDFLAGS+=$(shell pkg-config --libs libkyrka)
 
 SRC=	src/plugin.c \
