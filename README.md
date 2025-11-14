@@ -16,9 +16,14 @@ group conversations have multiple active tunnels.
 
 # Building
 
+You need to have weechat and libkyrka installed on your system.
+
+The CFLAGS must contain the correct linking libs for libkyrka.
+
+On MacOS set LIBKYRKA to the dist-build path for your libkyrka build.
+
 ```
-$ export LDFLAGS="-L/path/to/libkyrka/lib -lkyrka -lsodium"
-$ export CFLAGS="-I/path/to/weechat-plugin.h -I/path/to/libkyrka/include/"
+$ export LDFLAGS="-lkyrka -lsodium"
 $ make
 ```
 
