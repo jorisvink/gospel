@@ -650,7 +650,7 @@ tunnel_hb_recv(struct tunnel *tun, struct litany_msg_data *msg)
 	memset(tun->name, 0, sizeof(tun->name));
 	memcpy(tun->name, hb->name, sizeof(tun->name));
 
-	cbuf = weechat_buffer_search("litany", tun->chat->name);
+	cbuf = weechat_buffer_search("gospel", tun->chat->name);
 	if (cbuf != NULL &&
 	    weechat_nicklist_search_nick(cbuf, NULL, tun->name) == NULL) {
 		(void)weechat_nicklist_add_nick(cbuf, tun->chat->nicks,
@@ -732,7 +732,7 @@ tunnel_weechat_manage(const void *ptr, void *udata, int calls)
 	if (tun->online == 1 && (ts.tv_sec - tun->age) >= 10) {
 		tun->online = 0;
 
-		cbuf = weechat_buffer_search("litany", tun->chat->name);
+		cbuf = weechat_buffer_search("gospel", tun->chat->name);
 
 		if (tun->group) {
 			weechat_printf(cbuf, "%s\t%sleft the group (%02x)",

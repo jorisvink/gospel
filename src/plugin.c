@@ -22,9 +22,9 @@ WEECHAT_PLUGIN_VERSION("0.1");
 WEECHAT_PLUGIN_LICENSE("ISC");
 WEECHAT_PLUGIN_PRIORITY(6000);
 
-WEECHAT_PLUGIN_NAME("litany");
-WEECHAT_PLUGIN_DESCRIPTION(N_("The Litany Protocol"));
+WEECHAT_PLUGIN_NAME("gospel");
 WEECHAT_PLUGIN_AUTHOR("Joris Vink <joris@sanctorum.se>");
+WEECHAT_PLUGIN_DESCRIPTION(N_("Gospel - A litany protocol implementation"));
 
 /* Required by weechat plugins. */
 struct t_weechat_plugin		*weechat_plugin = NULL;

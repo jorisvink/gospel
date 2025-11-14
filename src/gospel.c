@@ -63,7 +63,7 @@ gospel_init(void)
 		return (-1);
 
 	if ((chatcmd = weechat_hook_command("chat",
-	    "start new litany chat", "flock peer", NULL, NULL,
+	    "start new 1:1 chat", "flock peer", NULL, NULL,
 	    gospel_cmd_chat, NULL, NULL)) == NULL)
 		return (-1);
 
@@ -73,7 +73,7 @@ gospel_init(void)
 		return (-1);
 
 	if ((chatcmd = weechat_hook_command("group",
-	    "start new litany group chat", "flock group", NULL, NULL,
+	    "start new group chat", "flock group", NULL, NULL,
 	    gospel_cmd_group, NULL, NULL)) == NULL)
 		return (-1);
 
@@ -82,7 +82,7 @@ gospel_init(void)
 	    gospel_cmd_info, NULL, NULL)) == NULL)
 		return (-1);
 
-	gospel_log("litany plugin loaded");
+	gospel_log("gospel plugin loaded");
 
 	return (0);
 }
@@ -156,7 +156,7 @@ gospel_logv(const char *fmt, va_list args)
 	 * If the system buffer is gone, pbuf is NULL and our calls
 	 * to weechat_printf() will end up in the core window.
 	 */
-	pbuf = weechat_buffer_search("litany", "system");
+	pbuf = weechat_buffer_search("gospel", "system");
 
 	len = vsnprintf(buf, sizeof(buf), fmt, args);
 	if (len == -1 || (size_t)len >= sizeof(buf)) {

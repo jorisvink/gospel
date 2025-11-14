@@ -69,7 +69,7 @@ gospel_chat_init(void)
 		return (-1);
 	}
 
-	if ((buf = weechat_buffer_search("litany", "system")) == NULL)
+	if ((buf = weechat_buffer_search("gospel", "system")) == NULL)
 		gospel_fatal("failed to find newly created system buffer");
 
 	weechat_buffer_set(buf, "notify", "0");
@@ -115,7 +115,7 @@ gospel_chat_free(struct chat *chat)
 	LIST_REMOVE(chat, list);
 	gospel_log("[chat] removed '%s'", chat->name);
 
-	if ((buf = weechat_buffer_search("litany", chat->name)) != NULL)
+	if ((buf = weechat_buffer_search("gospel", chat->name)) != NULL)
 		weechat_buffer_set_pointer(buf, "input_callback", NULL);
 
 	if (chat->liturgy != NULL)
@@ -294,7 +294,7 @@ gospel_chat_log(struct chat *chat, const char *fmt, ...)
 	PRECOND(chat != NULL);
 	PRECOND(fmt != NULL);
 
-	cbuf = weechat_buffer_search("litany", chat->name);
+	cbuf = weechat_buffer_search("gospel", chat->name);
 
 	va_start(args, fmt);
 	len = vsnprintf(buf, sizeof(buf), fmt, args);
@@ -344,7 +344,7 @@ gospel_chat_msg(struct chat *chat, struct tunnel *src, const void *data,
 		color = weechat_color("chat_nick");
 	}
 
-	buf = weechat_buffer_search("litany", chat->name);
+	buf = weechat_buffer_search("gospel", chat->name);
 
 	weechat_printf(buf, "%s%s\t%.*s", color,
 	    src->name, (int)len, (const char *)data);
@@ -451,7 +451,7 @@ chat_create_new(const char *name, u_int64_t flock, u_int16_t id, int mode)
 	if ((bufname = strdup(chat->name)) == NULL)
 		goto cleanup;
 
-	if ((buf = weechat_buffer_search("litany", name)) == NULL) {
+	if ((buf = weechat_buffer_search("gospel", name)) == NULL) {
 		if ((buf = weechat_buffer_new(name, cb, bufname, NULL,
 		    chat_buffer_close, bufname, NULL)) == NULL)
 			goto cleanup;
