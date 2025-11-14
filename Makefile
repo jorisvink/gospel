@@ -12,6 +12,8 @@ CFLAGS+=-Wpointer-arith -Wcast-qual -Wsign-compare -O2 -fPIC
 CFLAGS+=-fstack-protector-all -Wtype-limits -fno-common -g
 CFLAGS+=-Iinclude
 
+LDFLAGS+=$(shell pkg-config --libs libkyrka)
+
 SRC=	src/plugin.c \
 	src/chat.c \
 	src/config.c \
