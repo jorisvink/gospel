@@ -148,6 +148,7 @@ int	gospel_init(void);
 void	gospel_cleanup(void);
 int	gospel_nick_set(const char *);
 void	gospel_logv(const char *, va_list);
+int	gospel_typing_active(struct chat *);
 int	gospel_config_cathedral(struct sockaddr_in *);
 void	gospel_log(const char *, ...) __attribute__((format (printf, 1, 2)));
 void	gospel_fatal(const char *, ...)

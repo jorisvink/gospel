@@ -32,21 +32,33 @@ static int	gospel_cmd_chat(const void *, void *, struct t_gui_buffer *,
 		    int, char **, char **);
 static int	gospel_cmd_nick(const void *, void *, struct t_gui_buffer *,
 		    int, char **, char **);
+static int	gospel_typing_hook(const void *, void *, const char *,
+		    const char *, void *);
 
 /* The /chat command. */
-static struct t_hook		*chatcmd;
+static struct t_hook		*chat_cmd;
 
 /* The /nick command. */
-static struct t_hook		*nickcmd;
+static struct t_hook		*nick_cmd;
 
 /* The /group command. */
-static struct t_hook		*groupcmd;
+static struct t_hook		*group_cmd;
 
 /* The /info command. */
-static struct t_hook		*infocmd;
+static struct t_hook		*info_cmd;
+
+/* The hook to receive typing information. */
+static struct t_hook		*typing_hook;
 
 /* Our current nick. */
 static char			nick[LITANY_NICK_MAX_SIZE + 1];
+
+/* The typing status. */
+static struct {
+	u_int16_t	id;
+	u_int64_t	flock;
+	int		active;
+} typing;
 
 /*
  * Initialise the gospel by creating all required weechat related things.
@@ -54,32 +66,37 @@ static char			nick[LITANY_NICK_MAX_SIZE + 1];
 int
 gospel_init(void)
 {
-	PRECOND(chatcmd == NULL);
-	PRECOND(nickcmd == NULL);
-	PRECOND(groupcmd == NULL);
-	PRECOND(infocmd == NULL);
+	PRECOND(chat_cmd == NULL);
+	PRECOND(nick_cmd == NULL);
+	PRECOND(group_cmd == NULL);
+	PRECOND(info_cmd == NULL);
+	PRECOND(typing_hook == NULL);
 
 	if (gospel_chat_init() == -1)
 		return (-1);
 
-	if ((chatcmd = weechat_hook_command("chat",
+	if ((chat_cmd = weechat_hook_command("chat",
 	    "start new 1:1 chat", "flock peer", NULL, NULL,
 	    gospel_cmd_chat, NULL, NULL)) == NULL)
 		return (-1);
 
-	if ((nickcmd = weechat_hook_command("nick",
+	if ((nick_cmd = weechat_hook_command("nick",
 	    "Sets your nick", "nick", NULL, NULL,
 	    gospel_cmd_nick, NULL, NULL)) == NULL)
 		return (-1);
 
-	if ((chatcmd = weechat_hook_command("group",
+	if ((chat_cmd = weechat_hook_command("group",
 	    "start new group chat", "flock group", NULL, NULL,
 	    gospel_cmd_group, NULL, NULL)) == NULL)
 		return (-1);
 
-	if ((infocmd = weechat_hook_command("info",
+	if ((info_cmd = weechat_hook_command("info",
 	    "show a information", NULL, NULL, NULL,
 	    gospel_cmd_info, NULL, NULL)) == NULL)
+		return (-1);
+
+	if ((typing_hook = weechat_hook_signal("typing_self_*",
+	    gospel_typing_hook, NULL, NULL)) == NULL)
 		return (-1);
 
 	gospel_log("gospel plugin loaded");
@@ -112,17 +129,20 @@ gospel_cleanup(void)
 {
 	gospel_chat_cleanup();
 
-	if (chatcmd)
-		weechat_unhook(chatcmd);
+	if (chat_cmd)
+		weechat_unhook(chat_cmd);
 
-	if (groupcmd)
-		weechat_unhook(groupcmd);
+	if (group_cmd)
+		weechat_unhook(group_cmd);
 
-	if (nickcmd)
-		weechat_unhook(nickcmd);
+	if (nick_cmd)
+		weechat_unhook(nick_cmd);
 
-	if (infocmd)
-		weechat_unhook(infocmd);
+	if (info_cmd)
+		weechat_unhook(info_cmd);
+
+	if (typing_hook)
+		weechat_unhook(typing_hook);
 }
 
 /*
@@ -203,6 +223,20 @@ gospel_nick_get(void)
 }
 
 /*
+ * Returns the typing status if chat matches the flock/id.
+ */
+int
+gospel_typing_active(struct chat *chat)
+{
+	PRECOND(chat != NULL);
+
+	if (chat->flock == typing.flock && chat->id == typing.id)
+		return (typing.active);
+
+	return (0);
+}
+
+/*
  * Load the cathedral ip:port from our configuration.
  */
 int
@@ -231,6 +265,39 @@ gospel_config_cathedral(struct sockaddr_in *sin)
 	}
 
 	return (0);
+}
+
+/*
+ * Called when typing status changes.
+ */
+static int
+gospel_typing_hook(const void *ptr, void *udata, const char *signal,
+    const char *type_data, void *signal_data)
+{
+	struct t_gui_buffer	*buf;
+	struct chat		*chat;
+	const char		*title;
+
+	PRECOND(ptr == NULL);
+	PRECOND(udata == NULL);
+
+	buf = weechat_current_buffer();
+
+	if ((title = weechat_buffer_get_string(buf, "title")) == NULL)
+		return (WEECHAT_RC_OK);
+
+	if ((chat = gospel_chat_find_name(title)) == NULL)
+		return (WEECHAT_RC_OK);
+
+	typing.id = chat->id;
+	typing.flock = chat->flock;
+
+	if (!strcmp(signal, "typing_self_typing"))
+		typing.active = 1;
+	else
+		typing.active = 0;
+
+	return (WEECHAT_RC_OK);
 }
 
 /*
@@ -384,4 +451,3 @@ gospel_cmd_info(const void *ptr, void *udata, struct t_gui_buffer *buf,
 
 	return (WEECHAT_RC_OK);
 }
-

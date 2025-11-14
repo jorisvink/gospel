@@ -42,6 +42,7 @@
 struct litany_hb_data {
 	u_int64_t		uid;
 	u_int8_t		name[LITANY_NICK_MAX_SIZE];
+	u_int8_t		typing;
 } __attribute__((packed));
 
 /*
