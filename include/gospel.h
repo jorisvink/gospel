@@ -1,0 +1,194 @@
+/*
+ * Copyright (c) 2025 Joris Vink <joris@sanctorum.se>
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+#ifndef __H_GOSPEL_H
+#define __H_GOSPEL_H
+
+#include <sys/queue.h>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+
+#include <libkyrka/libkyrka.h>
+
+#include "weechat-plugin.h"
+#include "litany.h"
+
+/* We didn't obey. */
+#define PRECOND(x)							\
+	do {								\
+		if (!(x)) {						\
+			gospel_fatal("precondition fail @ %s:%s:%d\n",	\
+			    __FILE__, __func__, __LINE__);		\
+		}							\
+	} while (0)
+
+#define VERIFY(x)							\
+	do {								\
+		if (!(x)) {						\
+			gospel_fatal("verify fail @ %s:%s:%d\n",	\
+			    __FILE__, __func__, __LINE__);		\
+		}							\
+	} while (0)
+
+#if defined(__APPLE__)
+#include <libkern/OSByteOrder.h>
+#define htobe16(x)		OSSwapHostToBigInt16(x)
+#define htobe32(x)		OSSwapHostToBigInt32(x)
+#define htobe64(x)		OSSwapHostToBigInt64(x)
+#define be16toh(x)		OSSwapBigToHostInt16(x)
+#define be32toh(x)		OSSwapBigToHostInt32(x)
+#define be64toh(x)		OSSwapBigToHostInt64(x)
+#endif
+
+/*
+ * WeeChat its callbacks are quite terrible, so hack around it.
+ */
+union deconst {
+	void		*p;
+	const void	*cp;
+};
+
+/*
+ * A single liturgy either in discovery or signaling mode.
+ */
+struct liturgy {
+	int			fd;
+	u_int16_t		group;
+
+	int			sig;
+	KYRKA			*ctx;
+	u_int64_t		flock;
+
+	struct t_hook		*timer;
+	struct t_hook		*events;
+
+	struct sockaddr_in	cathedral;
+
+	u_int8_t		peers[KYRKA_PEERS_PER_FLOCK];
+	u_int8_t		signaling[KYRKA_PEERS_PER_FLOCK];
+};
+
+/*
+ * A single tunnel connected to a peer somewhere.
+ */
+struct tunnel {
+	int			fd;
+	u_int16_t		tid;
+	u_int16_t		group;
+
+	time_t			age;
+	u_int64_t		local_uid;
+	u_int64_t		remote_uid;
+
+	u_int64_t		flock;
+	u_int8_t		peerid;
+	int			online;
+
+	KYRKA			*ctx;
+	struct sockaddr_in	peer;
+	struct sockaddr_in	cathedral;
+
+	u_int64_t		msgid;
+
+	struct t_hook		*timer;
+	struct t_hook		*events;
+
+	struct chat		*chat;
+	struct litany_msg_list	pending;
+
+	char			name[LITANY_NICK_MAX_SIZE + 1];
+
+	LIST_ENTRY(tunnel)	list;
+};
+
+LIST_HEAD(tunnel_list, tunnel);
+
+/*
+ * A chat that we currently have open, could be 1:1 or group chat.
+ */
+#define CHAT_MODE_DIRECT	1
+#define CHAT_MODE_GROUP		2
+
+struct chat {
+	u_int16_t			id;
+	u_int64_t			flock;
+	char				*name;
+
+	int				mode;
+	int				release;
+
+	struct liturgy			*liturgy;
+	struct sockaddr_in		cathedral;
+
+	struct t_gui_nick_group		*nicks;
+	struct tunnel_list		tunnels;
+
+	LIST_ENTRY(chat)		list;
+};
+
+/* All code calling weechat crap needs access to this. */
+extern struct t_weechat_plugin 	*weechat_plugin;
+
+/* src/gospel.c */
+int	gospel_init(void);
+void	gospel_cleanup(void);
+int	gospel_nick_set(const char *);
+void	gospel_logv(const char *, va_list);
+int	gospel_config_cathedral(struct sockaddr_in *);
+void	gospel_log(const char *, ...) __attribute__((format (printf, 1, 2)));
+void	gospel_fatal(const char *, ...)
+	    __attribute__((format (printf, 1, 2))) __attribute__((noreturn));
+
+const char	*gospel_nick_get(void);
+
+/* src/chat.c */
+int	gospel_chat_init(void);
+void	gospel_chat_cleanup(void);
+void	gospel_chat_free(struct chat *);
+void	gospel_chat_signal(u_int8_t, u_int8_t);
+void	gospel_chat_list(struct t_gui_buffer *);
+int	gospel_chat_direct(u_int64_t, u_int8_t);
+int	gospel_chat_group(u_int64_t, u_int16_t);
+void	gospel_chat_log(struct chat *, const char *, ...);
+void	gospel_chat_msg(struct chat *, struct tunnel *, const void *, size_t);
+
+struct chat	*gospel_system_chat(void);
+struct chat	*gospel_chat_find_name(const char *);
+struct chat	*gospel_chat_find(u_int64_t flock, u_int16_t);
+
+/* src/config.c */
+int	gospel_config_uint16(const char *, u_int16_t *, int);
+int	gospel_config_uint32(const char *, u_int32_t *, int);
+int	gospel_config_uint64(const char *, u_int64_t *, int);
+
+const char	*gospel_config_string(const char *);
+
+/* src/liturgy.c */
+void	gospel_liturgy_free(struct liturgy *);
+int	gospel_liturgy_new(struct chat *, u_int16_t, int);
+void	gospel_liturgy_peer_offline(struct liturgy *, u_int8_t);
+
+/* src/tunnel.c */
+void	gospel_tunnel_free(struct tunnel *);
+void	gospel_tunnel_offline(u_int64_t, u_int8_t);
+void	gospel_tunnel_send(struct tunnel *, const char *);
+void	gospel_tunnel_log(struct tunnel *, const char *, ...);
+int	gospel_tunnel_new(struct chat *, u_int64_t, u_int8_t, u_int16_t);
+
+struct tunnel	*gospel_tunnel_find(struct tunnel_list *, u_int64_t, u_int8_t);
+
+#endif
