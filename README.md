@@ -27,6 +27,24 @@ $ export LDFLAGS="-lkyrka -lsodium"
 $ make
 ```
 
+# Loading
+
+## First time
+
+Make sure you update $HOME/.config/weechat/plugins.conf and set
+at least the following two configurations:
+
+```
+gospel.cathedral.ip = "x.x.x.x"
+gospel.cathedral.port = "xxxx"
+```
+
+## Load the plugin
+
+```
+/plugin load /path/to/gospel.so
+```
+
 # Configuration
 
 ```
