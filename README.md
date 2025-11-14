@@ -48,9 +48,6 @@ gospel.cathedral.port = "xxxx"
 # Configuration
 
 ```
-/set plugins.var.gospel.cathedral.ip "ip"
-/set plugins.var.gospel.cathedral.port "port"
-
 /set plugins.var.gospel.kek-id "kek_id"
 /set plugins.var.gospel.identity "cs_id"
 /set plugins.var.gospel.flock "flock_id"
