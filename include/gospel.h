@@ -150,6 +150,7 @@ int	gospel_nick_set(const char *);
 void	gospel_logv(const char *, va_list);
 int	gospel_typing_active(struct chat *);
 int	gospel_config_cathedral(struct sockaddr_in *);
+void	gospel_weechat_signal(const char *, const char *, ...);
 void	gospel_log(const char *, ...) __attribute__((format (printf, 1, 2)));
 void	gospel_fatal(const char *, ...)
 	    __attribute__((format (printf, 1, 2))) __attribute__((noreturn));

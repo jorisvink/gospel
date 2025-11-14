@@ -268,6 +268,24 @@ gospel_config_cathedral(struct sockaddr_in *sin)
 }
 
 /*
+ * Send the given signal into weechat.
+ */
+void
+gospel_weechat_signal(const char *signal, const char *fmt, ...)
+{
+	int		len;
+	va_list		args;
+	char		data[128];
+
+	va_start(args, fmt);
+	len = vsnprintf(data, sizeof(data), fmt, args);
+	if (len == -1 || (size_t)len >= sizeof(data))
+		gospel_fatal("failed to create data for signal *%s'", signal);
+
+	weechat_hook_signal_send(signal, WEECHAT_HOOK_SIGNAL_STRING, data);
+}
+
+/*
  * Called when typing status changes.
  */
 static int

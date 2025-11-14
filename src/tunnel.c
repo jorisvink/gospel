@@ -642,10 +642,8 @@ tunnel_hb_send(struct tunnel *tun)
 static void
 tunnel_hb_recv(struct tunnel *tun, struct litany_msg_data *msg)
 {
-	int			len;
 	struct litany_hb_data	*hb;
 	struct t_gui_buffer	*cbuf;
-	char			signal_data[64];
 
 	PRECOND(tun != NULL);
 	PRECOND(msg != NULL);
@@ -664,14 +662,8 @@ tunnel_hb_recv(struct tunnel *tun, struct litany_msg_data *msg)
 		    tun->name, NULL, NULL, NULL, 1);
 	}
 
-	len = snprintf(signal_data, sizeof(signal_data),
-	    "0x%lx;%s;%s", (unsigned long)cbuf,
-	    hb->typing ? "typing" : "off", tun->name);
-	if (len == -1 || (size_t)len >= sizeof(signal_data))
-		gospel_fatal("failed to create signal_data for typing");
-
-	weechat_hook_signal_send("typing_set_nick",
-	    WEECHAT_HOOK_SIGNAL_STRING, signal_data);
+	gospel_weechat_signal("typing_set_nick", "0x%lx;%s;%s",
+	    (unsigned long)cbuf, hb->typing ? "typing" : "off", tun->name);
 
 	if (tun->remote_uid != hb->uid) {
 		tun->remote_uid = hb->uid;
