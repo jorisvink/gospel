@@ -34,6 +34,5 @@ Don't forget to /save after setting these.
 ```
 /command litany nick yourname
 /command litany chat <flock> <peer>
+/command litany group <flock> <group>
 ```
-
-Opens up a new buffer with a tunnel to said peer if they are online.
