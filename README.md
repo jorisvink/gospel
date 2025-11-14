@@ -1,6 +1,6 @@
 # Weetany.
 
-Gospel, a gospel plugin for WeeChat.
+Gospel, a litany plugin for WeeChat.
 
 Supports signaling, 1:1 chats and group chats.
 
