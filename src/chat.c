@@ -183,7 +183,9 @@ gospel_chat_list(struct t_gui_buffer *buf)
 
 	LIST_FOREACH(chat, &chats, list) {
 		weechat_printf(buf, "    chat %s", chat->name);
-		weechat_printf(buf, "        `");
+
+		if (!LIST_EMPTY(&chat->tunnels))
+			weechat_printf(buf, "        `");
 
 		LIST_FOREACH(tun, &chat->tunnels, list)
 			weechat_printf(buf, "         | -> %s", tun->name);
