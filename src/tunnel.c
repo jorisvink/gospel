@@ -51,7 +51,7 @@ static void	tunnel_purgatory(const void *, size_t, u_int64_t, void *);
 static int	tunnel_configure(struct tunnel *, struct kyrka_cathedral_cfg *,
 		    u_int64_t, u_int8_t, u_int16_t);
 
-/* This isn't ideal but it works. */
+/* XXX - we want to just randomize this. */
 static u_int64_t	tunnel_sequence = 1;
 
 /*
