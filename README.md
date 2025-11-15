@@ -1,4 +1,4 @@
-# Weetany.
+# Gospel
 
 Gospel, a litany plugin for WeeChat.
 
