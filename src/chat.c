@@ -413,10 +413,11 @@ chat_buffer_input(const void *ptr, void *udata, struct t_gui_buffer *buf,
 static struct chat *
 chat_create_new(const char *name, u_int64_t flock, u_int16_t id, int mode)
 {
+	int			len;
 	void			*cb;
 	struct t_gui_buffer	*buf;
-	char			*bufname;
 	struct chat		*chat, *ret;
+	char			*bufname, input[32];
 
 	PRECOND(name != NULL);
 
@@ -466,8 +467,16 @@ chat_create_new(const char *name, u_int64_t flock, u_int16_t id, int mode)
 		weechat_buffer_set_pointer(buf, "input_callback", cb);
 	}
 
+	len = snprintf(input, sizeof(input), "%s%s",
+	    weechat_color("*yellow"), gospel_nick_get());
+	if (len == -1 || (size_t)len >= sizeof(input)) {
+		gospel_log("failed to create input_prompt");
+		goto cleanup;
+	}
+
 	weechat_buffer_set(buf, "title", name);
 	weechat_buffer_set(buf, "nicklist", "1");
+	weechat_buffer_set(buf, "input_prompt", input);
 
 	ret = chat;
 	chat = NULL;
