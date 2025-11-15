@@ -23,7 +23,8 @@
 #include <netinet/in.h>
 
 #include <libkyrka/libkyrka.h>
-#include <weechat/weechat-plugin.h>
+
+#include <weechat-plugin.h>
 
 #include "litany.h"
 
