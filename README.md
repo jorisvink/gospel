@@ -55,6 +55,14 @@ gospel.cathedral.port = "xxxx"
 /set plugins.var.gospel.cs-path "/path/to/cathedral-secret"
 ```
 
+By default WeeChat logs all conversations, you probably don't want
+that if you're using this plugin. To disable that either unload
+the logger plugin or turn off autologging.
+
+```
+/set logger.file.auto_log off
+```
+
 Don't forget to /save after setting these.
 
 # Chatting
