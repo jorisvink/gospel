@@ -60,8 +60,6 @@ gospel_liturgy_new(struct chat *chat, u_int16_t group, int sig)
 	lit->sig = sig;
 	lit->group = group;
 
-	chat->liturgy = lit;
-
 	if (liturgy_configure(lit, &cfg, group) == -1) {
 		gospel_liturgy_free(lit);
 		return (-1);
@@ -98,6 +96,8 @@ gospel_liturgy_new(struct chat *chat, u_int16_t group, int sig)
 		gospel_liturgy_free(lit);
 		return (-1);
 	}
+
+	chat->liturgy = lit;
 
 	gospel_log("[liturgy] %" PRIx64 ":%04x (%d) created",
 	    cfg.flock_src, group, sig);
