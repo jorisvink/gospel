@@ -3,7 +3,7 @@
 Gospel, a litany plugin for WeeChat.
 
 Litany is an end-to-end encrypted and peer-to-peer chat protocol
-using the sanctum as its transport layer.
+using the sanctum protocol as its transport layer.
 
 For details on how the underlying tunnels works see
 <a href="https://github.com/jorisvink/sanctum/blob/master/docs/crypto.md">docs/crypto.md</a> in the sanctum repository.
