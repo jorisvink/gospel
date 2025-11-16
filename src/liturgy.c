@@ -91,7 +91,7 @@ gospel_liturgy_new(struct chat *chat, u_int16_t group, int sig)
 	}
 
 	if (kyrka_cathedral_config(lit->ctx, &cfg) == -1) {
-		gospel_log("failed to configure cathedral: %d",
+		weechat_printf(NULL, "failed to configure cathedral: %d",
 		    kyrka_last_error(lit->ctx));
 		gospel_liturgy_free(lit);
 		return (-1);
@@ -160,32 +160,32 @@ liturgy_configure(struct liturgy *lit, struct kyrka_cathedral_cfg *cfg,
 		return (-1);
 
 	if (gospel_config_uint16("kek-id", &id, 16) == -1) {
-		gospel_log("kek-id flock configuration option found");
+		gospel_log("[cfg] plugins.gospel.kek-id missing or invalid");
 		return (-1);
 	}
 
 	if (gospel_config_uint64("flock", &cfg->flock_src, 16) == -1) {
-		gospel_log("no flock configuration option found");
+		gospel_log("[cfg] plugins.gospel.flock missing or invalid");
 		return (-1);
 	}
 
 	if (cfg->flock_src & 0xff) {
-		gospel_log("flock has domain bits set, please clear them");
+		gospel_log("[cfg] plugins.gospel.flock has domain bits");
 		return (-1);
 	}
 
 	if (gospel_config_uint32("identity", &cfg->identity, 16) == -1) {
-		gospel_log("no identity configuration option found");
+		gospel_log("[cfg] plugins.gospel.identity missing or invalid");
 		return (-1);
 	}
 
 	if ((cfg->secret = gospel_config_string("cs-path")) == NULL) {
-		gospel_log("no cs-path configuration option found");
+		gospel_log("[cfg] plugins.gospel.cs-path missing or invalid");
 		return (-1);
 	}
 
 	if ((cfg->cosk = gospel_config_string("cosk-path")) == NULL) {
-		gospel_log("no cosk-path configuration option found");
+		gospel_log("[cfg] plugins.gospel.cosk-path missing or invalid");
 		return (-1);
 	}
 

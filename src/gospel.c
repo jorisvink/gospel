@@ -53,6 +53,9 @@ static struct t_hook		*typing_hook;
 /* Our current nick. */
 static char			nick[LITANY_NICK_MAX_SIZE + 1];
 
+/* Are we still initialisation or done? This affects gospel_log. */
+static int			initialised = 0;
+
 /* The typing status. */
 static struct {
 	u_int16_t	id;
@@ -99,6 +102,7 @@ gospel_init(void)
 	    gospel_typing_hook, NULL, NULL)) == NULL)
 		return (-1);
 
+	initialised = 1;
 	gospel_log("gospel plugin loaded");
 
 	return (0);
@@ -176,7 +180,10 @@ gospel_logv(const char *fmt, va_list args)
 	 * If the system buffer is gone, pbuf is NULL and our calls
 	 * to weechat_printf() will end up in the core window.
 	 */
-	pbuf = weechat_buffer_search("gospel", "system");
+	if (initialised)
+		pbuf = weechat_buffer_search("gospel", "system");
+	else
+		pbuf = NULL;
 
 	len = vsnprintf(buf, sizeof(buf), fmt, args);
 	if (len == -1 || (size_t)len >= sizeof(buf)) {

@@ -305,37 +305,37 @@ tunnel_configure(struct tunnel *tun, struct kyrka_cathedral_cfg *cfg,
 		return (-1);
 
 	if (gospel_config_uint16("kek-id", &tun->tid, 16) == -1) {
-		gospel_log("kek-id flock configuration option found");
+		gospel_log("[cfg] plugins.gospel.kek-id missing or invalid");
 		return (-1);
 	}
 
 	if (gospel_config_uint64("flock", &cfg->flock_src, 16) == -1) {
-		gospel_log("no flock configuration option found");
+		gospel_log("[cfg] plugins.gospel.flock missing or invalid");
 		return (-1);
 	}
 
 	if ((cfg->flock_src & 0xff) || (flock & 0xff)) {
-		gospel_log("flock has domain bits set, please clear them");
+		gospel_log("[cfg] plugins.gospel.flock missing or invalid");
 		return (-1);
 	}
 
 	if (gospel_config_uint32("identity", &cfg->identity, 16) == -1) {
-		gospel_log("no identity configuration option found");
+		gospel_log("[cfg] plugins.gospel.identity missing or invalid");
 		return (-1);
 	}
 
 	if ((cfg->secret = gospel_config_string("cs-path")) == NULL) {
-		gospel_log("no cs-path configuration option found");
+		gospel_log("[cfg] plugins.gospel.cs-path missing or invalid");
 		return (-1);
 	}
 
 	if ((cfg->cosk = gospel_config_string("cosk-path")) == NULL) {
-		gospel_log("no cosk-path configuration option found");
+		gospel_log("[cfg] plugins.gospel.cosk-path missing or invalid");
 		return (-1);
 	}
 
 	if ((cfg->kek = gospel_config_string("kek-path")) == NULL) {
-		gospel_log("no kek-path configuration option found");
+		gospel_log("[cfg] plugins.gospel.kek-path missing or invalid");
 		return (-1);
 	}
 

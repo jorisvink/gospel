@@ -61,11 +61,13 @@ gospel_chat_init(void)
 	if ((syschat = chat_create_new("system", 0, 0, 0)) == NULL)
 		return (-1);
 
+	/* system shouldn't be part of the chat list. */
 	LIST_REMOVE(syschat, list);
 
 	if (gospel_liturgy_new(syschat, 0, 1) == -1) {
 		gospel_chat_free(syschat);
 		syschat = NULL;
+		gospel_log("failed to create signaling liturgy");
 		return (-1);
 	}
 
