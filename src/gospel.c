@@ -355,6 +355,11 @@ gospel_cmd_chat(const void *ptr, void *udata, struct t_gui_buffer *buf,
 		return (WEECHAT_RC_ERROR);
 	}
 
+	if (flock & 0xff) {
+		weechat_printf(buf, "given flock has domain bits set, invalid");
+		return (WEECHAT_RC_ERROR);
+	}
+
 	if (gospel_chat_direct(flock, peer) == -1) {
 		weechat_printf(buf, "failed to create new direct chat");
 		return (WEECHAT_RC_ERROR);
