@@ -371,7 +371,7 @@ gospel_cmd_group(const void *ptr, void *udata, struct t_gui_buffer *buf,
     int argc, char **argv, char **argv_eol)
 {
 	u_int16_t		group;
-	u_int64_t		flock;
+	u_int64_t		flock, cfg_flock;
 
 	PRECOND(ptr == NULL);
 	PRECOND(udata == NULL);
@@ -402,6 +402,22 @@ gospel_cmd_group(const void *ptr, void *udata, struct t_gui_buffer *buf,
 
 	if (group == 0) {
 		weechat_printf(buf, "group 0 is invalid");
+		return (WEECHAT_RC_ERROR);
+	}
+
+	if (flock & 0xff) {
+		weechat_printf(buf, "given flock has domain bits set, invalid");
+		return (WEECHAT_RC_ERROR);
+	}
+
+	if (gospel_config_uint64("flock", &cfg_flock, 16) == -1) {
+		weechat_printf(buf, "no flock configuration option found");
+		return (WEECHAT_RC_ERROR);
+	}
+
+	if (flock != cfg_flock) {
+		weechat_printf(buf,
+		    "cross-flock group chats not yet supported");
 		return (WEECHAT_RC_ERROR);
 	}
 
