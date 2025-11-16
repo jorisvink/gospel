@@ -33,8 +33,6 @@ static int	tunnel_weechat_manage(const void *, void *, int);
 static int	tunnel_weechat_socket(const void *, void *, int);
 
 static void	tunnel_alive(struct tunnel *);
-static void	tunnel_name(struct tunnel *, const char *, ...);
-
 static void	tunnel_ack_send(struct tunnel *, u_int64_t);
 static void	tunnel_ack_recv(struct tunnel *, u_int64_t);
 
@@ -270,33 +268,23 @@ gospel_tunnel_send(struct tunnel *tun, const char *line)
 }
 
 /*
- * Sets the tunnel its friendly name, with a fallback to the peer id.
+ * Returns the nick for the tunnel prefixed with its peer id.
  */
-static void
-tunnel_name(struct tunnel *tun, const char *fmt, ...)
+const char *
+gospel_tunnel_prefixed_nick(struct tunnel *tun)
 {
 	int		len;
-	va_list		args;
-	size_t		idx, sz;
+	static char	buf[32];
 
 	PRECOND(tun != NULL);
-	PRECOND(fmt != NULL);
 
-	va_start(args, fmt);
-	len = vsnprintf(tun->name, sizeof(tun->name), fmt, args);
-	va_end(args);
+	len = snprintf(buf, sizeof(buf), "%s%02x+%s%s",
+	    weechat_color(".gray"), tun->peerid,
+	    weechat_color("*white"), tun->name);
+	if (len == -1 || (size_t)len >= sizeof(buf))
+		gospel_fatal("prefixed nick length didn't work out");
 
-	if (len == -1 || (size_t)len >= sizeof(tun->name))
-		(void)snprintf(tun->name, sizeof(tun->name), "%02x", tun->tid);
-
-	sz = strlen(tun->name);
-	for (idx = 0; idx < sz; idx++) {
-		if (!isalnum((unsigned char)tun->name[idx]))
-			break;
-	}
-
-	if (idx != sz)
-		(void)snprintf(tun->name, sizeof(tun->name), "%02x", tun->tid);
+	return (buf);
 }
 
 /*
@@ -358,8 +346,6 @@ tunnel_configure(struct tunnel *tun, struct kyrka_cathedral_cfg *cfg,
 		cfg->flock_src |= LITANY_FLOCK_DOMAIN;
 		cfg->flock_dst = flock | LITANY_FLOCK_DOMAIN;
 	}
-
-	tunnel_name(tun, "%02x", peer);
 
 	cfg->udata = tun;
 	cfg->send = tunnel_cathedral;
@@ -644,6 +630,9 @@ tunnel_hb_recv(struct tunnel *tun, struct litany_msg_data *msg)
 {
 	struct litany_hb_data	*hb;
 	struct t_gui_buffer	*cbuf;
+	struct t_gui_nick	*nick;
+	const char		*name;
+	char			next[LITANY_NICK_MAX_SIZE + 1];
 
 	PRECOND(tun != NULL);
 	PRECOND(msg != NULL);
@@ -652,14 +641,34 @@ tunnel_hb_recv(struct tunnel *tun, struct litany_msg_data *msg)
 	hb = (struct litany_hb_data *)msg->data;
 	VERIFY(sizeof(tun->name) - 1 == sizeof(hb->name));
 
-	memset(tun->name, 0, sizeof(tun->name));
-	memcpy(tun->name, hb->name, sizeof(tun->name));
+	memset(next, 0, sizeof(next));
+	memcpy(next, hb->name, sizeof(hb->name));
 
 	cbuf = weechat_buffer_search("gospel", tun->chat->name);
+
+	if (strcmp(tun->name, next)) {
+		name = gospel_tunnel_prefixed_nick(tun);
+		if (cbuf != NULL && (nick = weechat_nicklist_search_nick(cbuf,
+		    NULL, name)) != NULL) {
+			weechat_nicklist_remove_nick(cbuf, nick);
+		}
+
+		if (tun->name[0] != '\0') {
+			weechat_printf(cbuf,
+			    "%s\t%schanged name to %s (%02x)",
+			    tun->name, weechat_color(".*green"),
+			    next, tun->peerid);
+		}
+	}
+
+	memset(tun->name, 0, sizeof(tun->name));
+	memcpy(tun->name, next, sizeof(next));
+
+	name = gospel_tunnel_prefixed_nick(tun);
 	if (cbuf != NULL &&
-	    weechat_nicklist_search_nick(cbuf, NULL, tun->name) == NULL) {
+	    weechat_nicklist_search_nick(cbuf, NULL, name) == NULL) {
 		(void)weechat_nicklist_add_nick(cbuf, tun->chat->nicks,
-		    tun->name, NULL, NULL, NULL, 1);
+		    name, NULL, NULL, NULL, 1);
 	}
 
 	gospel_weechat_signal("typing_set_nick", "0x%lx;%s;%s",
@@ -727,6 +736,7 @@ tunnel_weechat_manage(const void *ptr, void *udata, int calls)
 	struct tunnel		*tun;
 	struct t_gui_nick	*nick;
 	struct t_gui_buffer	*cbuf;
+	const char		*name;
 
 	PRECOND(ptr != NULL);
 	PRECOND(udata == NULL);
@@ -750,8 +760,9 @@ tunnel_weechat_manage(const void *ptr, void *udata, int calls)
 			    tun->name, weechat_color(".*red"));
 		}
 
+		name = gospel_tunnel_prefixed_nick(tun);
 		if (cbuf != NULL && (nick = weechat_nicklist_search_nick(cbuf,
-		    NULL, tun->name)) != NULL) {
+		    NULL, name)) != NULL) {
 			weechat_nicklist_remove_nick(cbuf, nick);
 		}
 	}

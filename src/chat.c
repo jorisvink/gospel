@@ -345,7 +345,44 @@ gospel_chat_msg(struct chat *chat, struct tunnel *src, const char *input)
 	}
 
 	buf = weechat_buffer_search("gospel", chat->name);
-	weechat_printf(buf, "%s%s\t%s", color, src->name, input);
+	weechat_printf(buf, "%s%s %s<%02x>\t%s", color, src->name,
+	    weechat_color(".gray"), src->peerid, input);
+}
+
+/*
+ * Update all information required on a chat after changes, for now
+ * this only happens after a nick change.
+ */
+void
+gospel_chat_update_all(void)
+{
+	struct chat		*chat;
+
+	LIST_FOREACH(chat, &chats, list)
+		gospel_chat_update_input_prompt(chat);
+}
+
+/*
+ * Update the input_prompt for the given chat.
+ */
+void
+gospel_chat_update_input_prompt(struct chat *chat)
+{
+	int			len;
+	struct t_gui_buffer	*buf;
+	char			input[64];
+
+	PRECOND(chat != NULL);
+
+	len = snprintf(input, sizeof(input), "%s%s",
+	    weechat_color("*yellow"), gospel_nick_get());
+	if (len == -1 || (size_t)len >= sizeof(input)) {
+		gospel_log("failed to create input_prompt");
+		return;
+	}
+
+	if ((buf = weechat_buffer_search("gospel", chat->name)) != NULL)
+		weechat_buffer_set(buf, "input_prompt", input);
 }
 
 /*
@@ -413,11 +450,10 @@ chat_buffer_input(const void *ptr, void *udata, struct t_gui_buffer *buf,
 static struct chat *
 chat_create_new(const char *name, u_int64_t flock, u_int16_t id, int mode)
 {
-	int			len;
 	void			*cb;
 	struct t_gui_buffer	*buf;
+	char			*bufname;
 	struct chat		*chat, *ret;
-	char			*bufname, input[32];
 
 	PRECOND(name != NULL);
 
@@ -461,22 +497,16 @@ chat_create_new(const char *name, u_int64_t flock, u_int16_t id, int mode)
 				goto cleanup;
 
 			(void)weechat_nicklist_add_nick(buf, chat->nicks,
-			    gospel_nick_get(), NULL, NULL, NULL, 1);
+			    gospel_nick_prefixed(), NULL, NULL, NULL, 1);
 		}
 	} else {
 		weechat_buffer_set_pointer(buf, "input_callback", cb);
 	}
 
-	len = snprintf(input, sizeof(input), "%s%s",
-	    weechat_color("*yellow"), gospel_nick_get());
-	if (len == -1 || (size_t)len >= sizeof(input)) {
-		gospel_log("failed to create input_prompt");
-		goto cleanup;
-	}
+	gospel_chat_update_input_prompt(chat);
 
 	weechat_buffer_set(buf, "title", name);
 	weechat_buffer_set(buf, "nicklist", "1");
-	weechat_buffer_set(buf, "input_prompt", input);
 
 	ret = chat;
 	chat = NULL;

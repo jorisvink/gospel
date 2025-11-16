@@ -223,6 +223,27 @@ gospel_nick_get(void)
 }
 
 /*
+ * Returns the current nick prefixed with its KEK id to the caller.
+ */
+const char *
+gospel_nick_prefixed(void)
+{
+	int		len;
+	u_int16_t	kek;
+	static char	buf[32];
+
+	if (gospel_config_uint16("kek-id", &kek, 16) == -1)
+		gospel_fatal("kek-id was not found as a configuration");
+
+	len = snprintf(buf, sizeof(buf), "%s%02x+%s%s",
+	    weechat_color(".gray"), kek, weechat_color("*white"), nick);
+	if (len == -1 || (size_t)len >= sizeof(buf))
+		gospel_fatal("prefixed nick length didn't work out");
+
+	return (buf);
+}
+
+/*
  * Returns the typing status if chat matches the flock/id.
  */
 int
@@ -467,6 +488,7 @@ gospel_cmd_nick(const void *ptr, void *udata, struct t_gui_buffer *buf,
 		return (WEECHAT_RC_ERROR);
 	}
 
+	gospel_chat_update_all();
 	weechat_printf(buf, "Your nick is now: %s", nick);
 
 	return (WEECHAT_RC_OK);

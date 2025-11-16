@@ -157,15 +157,18 @@ void	gospel_fatal(const char *, ...)
 	    __attribute__((format (printf, 1, 2))) __attribute__((noreturn));
 
 const char	*gospel_nick_get(void);
+const char	*gospel_nick_prefixed(void);
 
 /* src/chat.c */
 int	gospel_chat_init(void);
 void	gospel_chat_cleanup(void);
+void	gospel_chat_update_all(void);
 void	gospel_chat_free(struct chat *);
 void	gospel_chat_signal(u_int8_t, u_int8_t);
 void	gospel_chat_list(struct t_gui_buffer *);
 int	gospel_chat_direct(u_int64_t, u_int8_t);
 int	gospel_chat_group(u_int64_t, u_int16_t);
+void	gospel_chat_update_input_prompt(struct chat *);
 void	gospel_chat_log(struct chat *, const char *, ...);
 void	gospel_chat_msg(struct chat *, struct tunnel *, const char *);
 
@@ -192,6 +195,7 @@ void	gospel_tunnel_send(struct tunnel *, const char *);
 void	gospel_tunnel_log(struct tunnel *, const char *, ...);
 int	gospel_tunnel_new(struct chat *, u_int64_t, u_int8_t, u_int16_t);
 
+const char	*gospel_tunnel_prefixed_nick(struct tunnel *);
 struct tunnel	*gospel_tunnel_find(struct tunnel_list *, u_int64_t, u_int8_t);
 
 #endif
