@@ -27,30 +27,15 @@ On MacOS set LIBKYRKA to the dist-build path for your libkyrka build.
 $ make
 ```
 
-# Loading
-
-## First time
-
-Make sure you update $HOME/.config/weechat/plugins.conf and set
-at least the following two configurations:
-
-```
-gospel.cathedral.ip = "x.x.x.x"
-gospel.cathedral.port = "xxxx"
-```
-
-## Load the plugin
-
-```
-/plugin load /path/to/gospel.so
-```
-
 # Configuration
 
 ```
 /set plugins.var.gospel.kek-id "kek_id"
 /set plugins.var.gospel.identity "cs_id"
 /set plugins.var.gospel.flock "flock_id"
+
+/set plugins.var.gospel.cathedral.ip = "x.x.x.x"
+/set plugins.var.gospel.cathedral.port = "xxxx"
 
 /set plugins.var.gospel.kek-path "/path/to/kek"
 /set plugins.var.gospel.cosk-path "/path/to/cosk-file"
@@ -66,6 +51,12 @@ the logger plugin or turn off autologging.
 ```
 
 Don't forget to /save after setting these.
+
+## Load the plugin
+
+```
+/plugin load /path/to/gospel.so
+```
 
 # Chatting
 
