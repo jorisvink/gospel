@@ -8,6 +8,8 @@ using the sanctum as its transport layer.
 For details on how the underlying tunnels works see
 <a href="https://github.com/jorisvink/sanctum/blob/master/docs/crypto.md">docs/crypto.md</a> in the sanctum repository.
 
+<img src="gospel.png" alt="Gospel chat" width="512" />
+
 ## Features
 
 Litany supports having one-to-one or group conversations. The litany
