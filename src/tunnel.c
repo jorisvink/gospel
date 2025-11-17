@@ -644,6 +644,9 @@ tunnel_hb_recv(struct tunnel *tun, struct litany_msg_data *msg)
 	memset(next, 0, sizeof(next));
 	memcpy(next, hb->name, sizeof(hb->name));
 
+	if (gospel_nick_valid(next) == -1)
+		(void)snprintf(next, sizeof(next), "%02x", tun->peerid);
+
 	cbuf = weechat_buffer_search("gospel", tun->chat->name);
 
 	if (strcmp(tun->name, next)) {

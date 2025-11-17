@@ -195,10 +195,10 @@ gospel_logv(const char *fmt, va_list args)
 }
 
 /*
- * Set our current nick name to the given name.
+ * Check if the given name is valid. We only accept ascii.
  */
 int
-gospel_nick_set(const char *name)
+gospel_nick_valid(const char *name)
 {
 	size_t		idx, len;
 
@@ -210,9 +210,33 @@ gospel_nick_set(const char *name)
 		return (-1);
 
 	for (idx = 0; idx < len; idx++) {
-		if (!isalnum((unsigned char)name[idx]))
-			return (-1);
+		if (name[idx] >= '0' && name[idx] <= '9')
+			continue;
+		if (name[idx] >= 'A' && name[idx] <= 'Z')
+			continue;
+		if (name[idx] >= 'a' && name[idx] <= 'z')
+			continue;
+		return (-1);
 	}
+
+	return (0);
+}
+
+/*
+ * Set our current nick name to the given name.
+ */
+int
+gospel_nick_set(const char *name)
+{
+	size_t		len;
+
+	PRECOND(name != NULL);
+
+	if (gospel_nick_valid(name) == -1)
+		return (-1);
+
+	len = strlen(name);
+	VERIFY(len >= 2 && len < LITANY_NICK_MAX_SIZE);
 
 	memset(nick, 0, sizeof(nick));
 	memcpy(nick, name, len);
