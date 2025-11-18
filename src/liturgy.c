@@ -339,7 +339,8 @@ liturgy_cathedral(const void *data, size_t len, u_int64_t magic, void *udata)
 	lit = udata;
 
 	if (sendto(lit->fd, data, len, 0,
-	    (struct sockaddr *)&lit->cathedral, sizeof(lit->cathedral)) == -1)
+	    (struct sockaddr *)&lit->cathedral.addr,
+	    sizeof(lit->cathedral.addr)) == -1)
 		gospel_log("sendto: %s", strerror(errno));
 }
 
