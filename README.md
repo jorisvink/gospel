@@ -59,7 +59,7 @@ them by setting the **remembrance-path** configuration option.
 ```
 
 If you want to disable p2p tunnels, you can set **p2p-enabled** to 0. This
-is useful if you want to only use cathedrals as relay to hide your location
+is useful if you want to use cathedrals as a relay to hide your location
 from the people you are talking with.
 
 ```
