@@ -58,6 +58,14 @@ them by setting the **remembrance-path** configuration option.
 /set plugins.var.gospel.remembrance-path "/path/to/write/remembrance.cfg"
 ```
 
+If you want to disable p2p tunnels, you can set **p2p-enabled** to 0. This
+is useful if you want to only use cathedrals as relay to hide your location
+from the people you are talking with.
+
+```
+/set plugins.var.gospel.p2p-enabled 0
+```
+
 By default WeeChat logs all conversations, you probably don't want
 that if you're using this plugin. To disable that either unload
 the logger plugin or turn off autologging.
