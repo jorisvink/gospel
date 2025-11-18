@@ -223,12 +223,12 @@ liturgy_event(KYRKA *ctx, union kyrka_event *evt, void *udata)
 	switch (evt->type) {
 	case KYRKA_EVENT_LITURGY_RECEIVED:
 		if (lit->sig) {
-			for (idx = 0; idx < KYRKA_PEERS_PER_FLOCK; idx++) {
+			for (idx = 1; idx < KYRKA_PEERS_PER_FLOCK; idx++) {
 				liturgy_tunnel_signaling(lit,
 				    idx, evt->liturgy.peers[idx]);
 			}
 		} else {
-			for (idx = 0; idx < KYRKA_PEERS_PER_FLOCK; idx++) {
+			for (idx = 1; idx < KYRKA_PEERS_PER_FLOCK; idx++) {
 				liturgy_tunnel_discovery(lit,
 				    idx, evt->liturgy.peers[idx]);
 			}
