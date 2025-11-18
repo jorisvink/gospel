@@ -75,6 +75,10 @@ gospel_init(void)
 	PRECOND(info_cmd == NULL);
 	PRECOND(typing_hook == NULL);
 
+	nyfe_random_init();
+	gospel_tunnel_init();
+	gospel_remembrance_init();
+
 	if (gospel_chat_init() == -1)
 		return (-1);
 
@@ -289,32 +293,42 @@ gospel_typing_active(struct chat *chat)
 }
 
 /*
- * Load the cathedral ip:port from our configuration.
+ * If remembrances are active, use a random cathedral from the
+ * remembrance list. Otherwise use the configured cathedral.
  */
 int
-gospel_config_cathedral(struct sockaddr_in *sin)
+gospel_config_cathedral(struct cathedral *cat)
 {
 	const char		*addr;
 
-	PRECOND(sin != NULL);
+	PRECOND(cat != NULL);
 
-	if (gospel_config_uint16("cathedral.port", &sin->sin_port, 10) == -1) {
+	if (gospel_remembrance_active()) {
+		if (gospel_remembrance_cathedral_select(cat) != -1)
+			return (0);
+	}
+
+	if (gospel_config_uint16("cathedral.port",
+	    &cat->addr.sin_port, 10) == -1) {
 		gospel_log("no cathedral.port configuration option found");
 		return (-1);
 	}
 
-	sin->sin_family = AF_INET;
-	sin->sin_port = htobe16(sin->sin_port);
+	cat->addr.sin_family = AF_INET;
+	cat->addr.sin_port = htobe16(cat->addr.sin_port);
 
 	if ((addr = gospel_config_string("cathedral.ip")) == NULL) {
 		gospel_log("no cathedral.ip configuration option found");
 		return (-1);
 	}
 
-	if (inet_pton(AF_INET, addr, &sin->sin_addr) == -1) {
+	if (inet_pton(AF_INET, addr, &cat->addr.sin_addr) == -1) {
 		gospel_log("cathedral.ip contains an invalid address");
 		return (-1);
 	}
+
+	gospel_log("using config cathedral");
+	gospel_remembrance_cathedral_alive(cat);
 
 	return (0);
 }

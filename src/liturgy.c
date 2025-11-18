@@ -19,6 +19,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
@@ -99,8 +100,8 @@ gospel_liturgy_new(struct chat *chat, u_int16_t group, int sig)
 
 	chat->liturgy = lit;
 
-	gospel_log("[liturgy] %" PRIx64 ":%04x (%d) created",
-	    cfg.flock_src, group, sig);
+	gospel_log("[liturgy] %" PRIx64 ":%04x (%d) created (cathedral:%p)",
+	    cfg.flock_src, group, sig, (void *)&lit->cathedral);
 
 	return (0);
 }
@@ -191,6 +192,7 @@ liturgy_configure(struct liturgy *lit, struct kyrka_cathedral_cfg *cfg,
 
 	cfg->tunnel = id;
 	cfg->group = group;
+	cfg->remembrance = 1;
 	cfg->flock_src |= LITANY_FLOCK_GROUP_DOMAIN;
 
 	cfg->udata = lit;
@@ -203,7 +205,6 @@ liturgy_configure(struct liturgy *lit, struct kyrka_cathedral_cfg *cfg,
 
 /*
  * A libkyrka event occurred on a liturgy, we handle it.
- * We only expect KYRKA_EVENT_LITURGY_RECEIVED.
  */
 static void
 liturgy_event(KYRKA *ctx, union kyrka_event *evt, void *udata)
@@ -216,6 +217,8 @@ liturgy_event(KYRKA *ctx, union kyrka_event *evt, void *udata)
 	PRECOND(udata != NULL);
 
 	lit = udata;
+
+	gospel_remembrance_cathedral_alive(&lit->cathedral);
 
 	switch (evt->type) {
 	case KYRKA_EVENT_LITURGY_RECEIVED:
@@ -230,6 +233,10 @@ liturgy_event(KYRKA *ctx, union kyrka_event *evt, void *udata)
 				    idx, evt->liturgy.peers[idx]);
 			}
 		}
+		break;
+	case KYRKA_EVENT_REMEMBRANCE_RECEIVED:
+		if (lit->sig)
+			gospel_remembrance_save(&evt->remembrance);
 		break;
 	default:
 		gospel_log("received event %d for a liturgy", evt->type);
@@ -366,6 +373,8 @@ liturgy_weechat_manage(const void *ptr, void *udata, int calls)
 		gospel_log("kyrka_cathedral_liturgy: %d",
 		    kyrka_last_error(lit->ctx));
 	}
+
+	gospel_remembrance_cathedral_check(&lit->cathedral);
 
 	return (WEECHAT_RC_OK);
 }

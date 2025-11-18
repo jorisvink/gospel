@@ -49,8 +49,17 @@ static void	tunnel_purgatory(const void *, size_t, u_int64_t, void *);
 static int	tunnel_configure(struct tunnel *, struct kyrka_cathedral_cfg *,
 		    u_int64_t, u_int8_t, u_int16_t);
 
-/* XXX - we want to just randomize this. */
-static u_int64_t	tunnel_sequence = 1;
+/* Used to signal to other side if we restarted somehow. */
+static time_t		tunnel_sequence;
+
+/*
+ * Initialise our tunnel_sequence with current timestamp.
+ */
+void
+gospel_tunnel_init(void)
+{
+	time(&tunnel_sequence);
+}
 
 /*
  * Create a new tunnel towards the given flock and peer and attach
@@ -79,8 +88,6 @@ gospel_tunnel_new(struct chat *chat, u_int64_t flock, u_int8_t peer,
 	tun->group = group;
 	tun->local_uid = tunnel_sequence++;
 
-	memcpy(&tun->peer, &chat->cathedral, sizeof(tun->peer));
-
 	if (tunnel_configure(tun, &cfg, flock, peer, group) == -1) {
 		gospel_tunnel_free(tun);
 		return (-1);
@@ -92,7 +99,7 @@ gospel_tunnel_new(struct chat *chat, u_int64_t flock, u_int8_t peer,
 		return (-1);
 	}
 
-	if ((tun->timer = weechat_hook_timer(1000, 0, 0,
+	if ((tun->timer = weechat_hook_timer(1100, 0, 0,
 	    tunnel_weechat_manage, tun, NULL)) == NULL) {
 		gospel_tunnel_log(tun, "failed to create new timer hook");
 		gospel_tunnel_free(tun);
@@ -137,6 +144,8 @@ gospel_tunnel_new(struct chat *chat, u_int64_t flock, u_int8_t peer,
 		gospel_chat_signal(tun->peerid, 1);
 
 	tunnel_alive(tun);
+	gospel_log("[tunnel] %" PRIx64 ":%04x created (cathedral:%p)",
+	    tun->flock, tun->tid, &tun->cathedral);
 
 	return (0);
 }
@@ -304,6 +313,8 @@ tunnel_configure(struct tunnel *tun, struct kyrka_cathedral_cfg *cfg,
 	if (gospel_config_cathedral(&tun->cathedral) == -1)
 		return (-1);
 
+	memcpy(&tun->peer, &tun->cathedral.addr, sizeof(tun->peer));
+
 	if (gospel_config_uint16("kek-id", &tun->tid, 16) == -1) {
 		gospel_log("[cfg] plugins.gospel.kek-id missing or invalid");
 		return (-1);
@@ -348,6 +359,7 @@ tunnel_configure(struct tunnel *tun, struct kyrka_cathedral_cfg *cfg,
 	}
 
 	cfg->udata = tun;
+	cfg->remembrance = 1;
 	cfg->send = tunnel_cathedral;
 
 	cfg->tunnel = tun->tid << 8 | peer;
@@ -407,15 +419,18 @@ tunnel_event(KYRKA *ctx, union kyrka_event *evt, void *udata)
 			tun->peer.sin_port = evt->peer.port;
 			tun->peer.sin_addr.s_addr = evt->peer.ip;
 
-			if (tun->cathedral.sin_addr.s_addr !=
+			if (tun->cathedral.addr.sin_addr.s_addr !=
 			    tun->peer.sin_addr.s_addr &&
-			    tun->cathedral.sin_port !=
+			    tun->cathedral.addr.sin_port !=
 			    tun->peer.sin_port) {
 				gospel_tunnel_log(tun,
 				    "[peer]: p2p discovery %s:%u",
 				    inet_ntoa(in), htons(evt->peer.port));
 			}
 		}
+		break;
+	case KYRKA_EVENT_REMEMBRANCE_RECEIVED:
+		gospel_remembrance_cathedral_alive(&tun->cathedral);
 		break;
 	default:
 		gospel_tunnel_log(tun, "event %u", evt->type);
@@ -440,13 +455,13 @@ tunnel_cathedral(const void *data, size_t len, u_int64_t magic, void *udata)
 
 	tun = udata;
 
-	port = be16toh(tun->cathedral.sin_port);
+	port = be16toh(tun->cathedral.addr.sin_port);
 	if (magic == KYRKA_CATHEDRAL_NAT_MAGIC)
 		port++;
 
 	sin.sin_family = AF_INET;
 	sin.sin_port = htobe16(port);
-	sin.sin_addr.s_addr = tun->cathedral.sin_addr.s_addr;
+	sin.sin_addr.s_addr = tun->cathedral.addr.sin_addr.s_addr;
 
 	if (sendto(tun->fd, data, len, 0,
 	    (struct sockaddr *)&sin, sizeof(sin)) == -1)
@@ -740,6 +755,7 @@ tunnel_weechat_manage(const void *ptr, void *udata, int calls)
 	struct t_gui_nick	*nick;
 	struct t_gui_buffer	*cbuf;
 	const char		*name;
+	int			is_cathedral;
 
 	PRECOND(ptr != NULL);
 	PRECOND(udata == NULL);
@@ -789,6 +805,20 @@ tunnel_weechat_manage(const void *ptr, void *udata, int calls)
 	if (tun->online) {
 		tunnel_hb_send(tun);
 		tunnel_msg_resend(tun);
+	}
+
+	if (!memcmp(&tun->peer, &tun->cathedral.addr, sizeof(tun->peer)))
+		is_cathedral = 1;
+	else
+		is_cathedral = 0;
+
+	gospel_remembrance_cathedral_check(&tun->cathedral);
+
+	if (is_cathedral &&
+	    memcmp(&tun->peer, &tun->cathedral.addr, sizeof(tun->peer))) {
+		gospel_log("[tunnel] %" PRIx64 ":%04x cathedral swapped",
+		    tun->flock, tun->tid);
+		memcpy(&tun->peer, &tun->cathedral.addr, sizeof(tun->peer));
 	}
 
 	return (WEECHAT_RC_OK);

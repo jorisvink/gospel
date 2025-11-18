@@ -56,6 +56,15 @@
 #endif
 
 /*
+ * Time in seconds before we consider a cathedral dead
+ *
+ * This timeout is used for *all* communication with a cathedral, be
+ * it active tunnels or liturgies and thus must take into the account
+ * the least amount of traffic we can see (3x remembrances).
+ */
+#define GOSPEL_CATHEDRAL_TIMEOUT	45
+
+/*
  * WeeChat its callbacks are quite terrible, so hack around it.
  */
 union deconst {
@@ -64,10 +73,19 @@ union deconst {
 };
 
 /*
+ * A cathedral together with its last received data timestamp.
+ */
+struct cathedral {
+	struct sockaddr_in	addr;
+	time_t			last;
+};
+
+/*
  * A single liturgy either in discovery or signaling mode.
  */
 struct liturgy {
 	int			fd;
+	time_t			age;
 	u_int16_t		group;
 
 	int			sig;
@@ -77,7 +95,7 @@ struct liturgy {
 	struct t_hook		*timer;
 	struct t_hook		*events;
 
-	struct sockaddr_in	cathedral;
+	struct cathedral	cathedral;
 
 	u_int8_t		peers[KYRKA_PEERS_PER_FLOCK];
 	u_int8_t		signaling[KYRKA_PEERS_PER_FLOCK];
@@ -101,7 +119,7 @@ struct tunnel {
 
 	KYRKA			*ctx;
 	struct sockaddr_in	peer;
-	struct sockaddr_in	cathedral;
+	struct cathedral	cathedral;
 
 	u_int64_t		msgid;
 
@@ -133,7 +151,6 @@ struct chat {
 	int				release;
 
 	struct liturgy			*liturgy;
-	struct sockaddr_in		cathedral;
 
 	struct t_gui_nick_group		*nicks;
 	struct tunnel_list		tunnels;
@@ -151,7 +168,7 @@ int	gospel_nick_set(const char *);
 int	gospel_nick_valid(const char *);
 void	gospel_logv(const char *, va_list);
 int	gospel_typing_active(struct chat *);
-int	gospel_config_cathedral(struct sockaddr_in *);
+int	gospel_config_cathedral(struct cathedral *);
 void	gospel_weechat_signal(const char *, const char *, ...);
 void	gospel_log(const char *, ...) __attribute__((format (printf, 1, 2)));
 void	gospel_fatal(const char *, ...)
@@ -189,7 +206,16 @@ void	gospel_liturgy_free(struct liturgy *);
 int	gospel_liturgy_new(struct chat *, u_int16_t, int);
 void	gospel_liturgy_peer_offline(struct liturgy *, u_int8_t);
 
+/* src/remembrance.c */
+void	gospel_remembrance_init(void);
+int	gospel_remembrance_active(void);
+void	gospel_remembrance_cathedral_alive(struct cathedral *);
+void	gospel_remembrance_cathedral_check(struct cathedral *);
+int	gospel_remembrance_cathedral_select(struct cathedral *);
+void	gospel_remembrance_save(struct kyrka_event_remembrance *);
+
 /* src/tunnel.c */
+void	gospel_tunnel_init(void);
 void	gospel_tunnel_free(struct tunnel *);
 void	gospel_tunnel_offline(u_int64_t, u_int8_t);
 void	gospel_tunnel_send(struct tunnel *, const char *);
@@ -198,5 +224,11 @@ int	gospel_tunnel_new(struct chat *, u_int64_t, u_int8_t, u_int16_t);
 
 const char	*gospel_tunnel_prefixed_nick(struct tunnel *);
 struct tunnel	*gospel_tunnel_find(struct tunnel_list *, u_int64_t, u_int8_t);
+
+/*
+ * XXX - these are included in libkyrka but not prototype'd
+ */
+void	nyfe_random_init(void);
+void	nyfe_random_bytes(void *, size_t);
 
 #endif

@@ -37,9 +37,16 @@ $ make
 /set plugins.var.gospel.cathedral.ip = "x.x.x.x"
 /set plugins.var.gospel.cathedral.port = "xxxx"
 
-/set plugins.var.gospel.kek-path "/path/to/kek"
-/set plugins.var.gospel.cosk-path "/path/to/cosk-file"
-/set plugins.var.gospel.cs-path "/path/to/cathedral-secret"
+/set plugins.var.gospel.kek-path "/path/to/read/kek"
+/set plugins.var.gospel.cosk-path "/path/to/read/cosk-file"
+/set plugins.var.gospel.cs-path "/path/to/read/cathedral-secret"
+```
+
+If you wish to use remembrances for your cathedral setup, enable
+them by setting the **remembrance-path** configuration option.
+
+```
+/set plugins.var.gospel.remembrance-path "/path/to/write/remembrance.cfg"
 ```
 
 By default WeeChat logs all conversations, you probably don't want

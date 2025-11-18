@@ -22,6 +22,7 @@ SRC=	src/plugin.c \
 	src/config.c \
 	src/gospel.c \
 	src/liturgy.c \
+	src/remembrance.c \
 	src/tunnel.c
 
 ifeq ("$(SANITIZE)", "1")

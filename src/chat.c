@@ -477,9 +477,6 @@ chat_create_new(const char *name, u_int64_t flock, u_int16_t id, int mode)
 	chat->flock = flock;
 	LIST_INIT(&chat->tunnels);
 
-	if (gospel_config_cathedral(&chat->cathedral) == -1)
-		goto cleanup;
-
 	if (!strcmp(name, "system"))
 		cb = NULL;
 	else
