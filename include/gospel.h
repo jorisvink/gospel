@@ -116,6 +116,7 @@ struct tunnel {
 	u_int64_t		flock;
 	u_int8_t		peerid;
 	int			online;
+	int			p2p_allowed;
 
 	KYRKA			*ctx;
 	struct sockaddr_in	peer;

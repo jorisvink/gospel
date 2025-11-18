@@ -303,6 +303,8 @@ static int
 tunnel_configure(struct tunnel *tun, struct kyrka_cathedral_cfg *cfg,
     u_int64_t flock, u_int8_t peer, u_int16_t group)
 {
+	u_int64_t		p2p;
+
 	PRECOND(tun != NULL);
 	PRECOND(cfg != NULL);
 
@@ -349,6 +351,11 @@ tunnel_configure(struct tunnel *tun, struct kyrka_cathedral_cfg *cfg,
 		gospel_log("[cfg] plugins.gospel.kek-path missing or invalid");
 		return (-1);
 	}
+
+	if (gospel_config_uint64("p2p-enabled", &p2p, 10) == -1 || p2p != 0)
+		tun->p2p_allowed = 1;
+	else
+		tun->p2p_allowed = 0;
 
 	if (group) {
 		cfg->flock_src |= LITANY_FLOCK_GROUP_DOMAIN;
@@ -797,9 +804,12 @@ tunnel_weechat_manage(const void *ptr, void *udata, int calls)
 		    kyrka_last_error(tun->ctx));
 	}
 
-	if (kyrka_cathedral_nat_detection(tun->ctx) == -1) {
-		gospel_tunnel_log(tun, "kyrka_cathedral_nat_detection: %d",
-		    kyrka_last_error(tun->ctx));
+	if (tun->p2p_allowed) {
+		if (kyrka_cathedral_nat_detection(tun->ctx) == -1) {
+			gospel_tunnel_log(tun,
+			    "kyrka_cathedral_nat_detection: %d",
+			    kyrka_last_error(tun->ctx));
+		}
 	}
 
 	if (tun->online) {
