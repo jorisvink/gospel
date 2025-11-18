@@ -6,7 +6,10 @@ Litany is an end-to-end encrypted and peer-to-peer chat protocol using
 sanctum as its transport layer.
 
 If you don't know what sanctum is, see the
-<a href="https://github.com/jorisvink/sanctum/">sanctum</a> repository.
+<a href="https://github.com/jorisvink/sanctum/">sanctum</a> repository. The
+gospel plugin uses the
+<a href="https://github.com/jorisvink/libkyrka">libkyrka</a> library to
+implement the sanctum protocol.
 
 For details on how the underlying sanctum tunnels works see
 <a href="https://github.com/jorisvink/sanctum/blob/master/docs/crypto.md">docs/crypto.md</a> in the sanctum repository.
