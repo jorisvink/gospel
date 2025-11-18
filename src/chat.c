@@ -170,11 +170,11 @@ gospel_chat_find(u_int64_t flock, u_int16_t id)
 void
 gospel_chat_list(struct t_gui_buffer *buf)
 {
+	struct in_addr		in;
 	struct tunnel		*tun;
 	struct chat		*chat;
 
 	PRECOND(buf != NULL);
-
 
 	if (LIST_EMPTY(&chats)) {
 		weechat_printf(buf, "no active gospels");
@@ -184,13 +184,23 @@ gospel_chat_list(struct t_gui_buffer *buf)
 	weechat_printf(buf, "active gospels");
 
 	LIST_FOREACH(chat, &chats, list) {
-		weechat_printf(buf, "    chat %s", chat->name);
+		weechat_printf(buf, "  chat %s", chat->name);
 
 		if (!LIST_EMPTY(&chat->tunnels))
-			weechat_printf(buf, "        `");
+			weechat_printf(buf, "    \\");
 
-		LIST_FOREACH(tun, &chat->tunnels, list)
-			weechat_printf(buf, "         | -> %s", tun->name);
+		LIST_FOREACH(tun, &chat->tunnels, list) {
+			weechat_printf(buf, "     | -> %s", tun->name);
+
+			in.s_addr = tun->cathedral.addr.sin_addr.s_addr;
+			weechat_printf(buf, "          cathedral: %s:%u",
+			    inet_ntoa(in),
+			    be16toh(tun->cathedral.addr.sin_port));
+
+			in.s_addr = tun->peer.sin_addr.s_addr;
+			weechat_printf(buf, "          peer     : %s:%u",
+			    inet_ntoa(in), be16toh(tun->peer.sin_port));
+		}
 	}
 }
 
