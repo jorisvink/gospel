@@ -345,6 +345,7 @@ gospel_weechat_signal(const char *signal, const char *fmt, ...)
 
 	va_start(args, fmt);
 	len = vsnprintf(data, sizeof(data), fmt, args);
+	va_end(args);
 	if (len == -1 || (size_t)len >= sizeof(data))
 		gospel_fatal("failed to create data for signal *%s'", signal);
 
