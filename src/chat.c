@@ -170,6 +170,7 @@ gospel_chat_find(u_int64_t flock, u_int16_t id)
 void
 gospel_chat_list(struct t_gui_buffer *buf)
 {
+	struct timespec		ts;
 	struct in_addr		in;
 	struct tunnel		*tun;
 	struct chat		*chat;
@@ -177,29 +178,42 @@ gospel_chat_list(struct t_gui_buffer *buf)
 	PRECOND(buf != NULL);
 
 	if (LIST_EMPTY(&chats)) {
-		weechat_printf(buf, "no active gospels");
+		weechat_printf(buf, "%sno active gospels",
+		    weechat_color("*magenta"));
 		return;
 	}
 
-	weechat_printf(buf, "active gospels");
+	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+	weechat_printf(buf, "%sactive gospels", weechat_color("*magenta"));
 
 	LIST_FOREACH(chat, &chats, list) {
-		weechat_printf(buf, "  chat %s", chat->name);
-
-		if (!LIST_EMPTY(&chat->tunnels))
-			weechat_printf(buf, "    \\");
+		weechat_printf(buf, "  %s%s",
+		    weechat_color("*yellow"), chat->name);
 
 		LIST_FOREACH(tun, &chat->tunnels, list) {
-			weechat_printf(buf, "     | -> %s", tun->name);
+			weechat_printf(buf, "   |-> %s%02x+%s%s",
+			    weechat_color(".gray"), tun->peerid,
+			    weechat_color("white"), tun->name);
 
 			in.s_addr = tun->cathedral.addr.sin_addr.s_addr;
-			weechat_printf(buf, "          cathedral: %s:%u",
-			    inet_ntoa(in),
+			weechat_printf(buf, "         %scathedral",
+			    weechat_color("lightcyan"));
+			weechat_printf(buf, "           %s%s:%u",
+			    weechat_color("white"), inet_ntoa(in),
 			    be16toh(tun->cathedral.addr.sin_port));
+			weechat_printf(buf, "           %salive %" PRIu64
+			    " second(s) ago", weechat_color("white"),
+			    ts.tv_sec - tun->cathedral.last);
 
 			in.s_addr = tun->peer.sin_addr.s_addr;
-			weechat_printf(buf, "          peer     : %s:%u",
-			    inet_ntoa(in), be16toh(tun->peer.sin_port));
+			weechat_printf(buf, "         %speer",
+			    weechat_color("lightcyan"));
+			weechat_printf(buf, "           %s%s:%u",
+			    weechat_color("white"), inet_ntoa(in),
+			    be16toh(tun->peer.sin_port));
+			weechat_printf(buf, "           %salive %" PRIu64
+			    " second(s) ago", weechat_color("white"),
+			    ts.tv_sec - tun->age);
 		}
 	}
 }
