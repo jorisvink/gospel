@@ -487,8 +487,10 @@ chat_create_new(const char *name, u_int64_t flock, u_int16_t id, int mode)
 
 	if ((buf = weechat_buffer_search("gospel", name)) == NULL) {
 		if ((buf = weechat_buffer_new(name, cb, bufname, NULL,
-		    chat_buffer_close, bufname, NULL)) == NULL)
+		    chat_buffer_close, bufname, NULL)) == NULL) {
+			free(bufname);
 			goto cleanup;
+		}
 
 		if (strcmp(name, "system")) {
 			if ((chat->nicks = weechat_nicklist_add_group(buf,
@@ -499,6 +501,7 @@ chat_create_new(const char *name, u_int64_t flock, u_int16_t id, int mode)
 			    gospel_nick_prefixed(), NULL, NULL, NULL, 1);
 		}
 	} else {
+		free(bufname);
 		weechat_buffer_set_pointer(buf, "input_callback", cb);
 	}
 
