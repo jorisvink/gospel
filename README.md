@@ -27,8 +27,8 @@ meaning group conversations will have multiple active tunnels.
 
 The gospel plugin builds on Linux, OpenBSD and MacOS.
 
-You need to have weechat and libkyrka installed on your system, the
-build also depends on pkg-config.
+You need to have at least weechat 3.8+ and libkyrka master installed
+on your system, the build also depends on pkg-config.
 
 On MacOS set LIBKYRKA to the dist-build path for your libkyrka build.
 
