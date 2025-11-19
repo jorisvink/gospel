@@ -242,6 +242,8 @@ gospel_nick_set(const char *name)
 	len = strlen(name);
 	VERIFY(len >= 2 && len < LITANY_NICK_MAX_SIZE);
 
+	gospel_chat_remove_self_all();
+
 	memset(nick, 0, sizeof(nick));
 	memcpy(nick, name, len);
 

@@ -376,16 +376,43 @@ gospel_chat_msg(struct chat *chat, struct tunnel *src, const char *input)
 }
 
 /*
+ * Remove our current nickname from all nicklists.
+ */
+void
+gospel_chat_remove_self_all(void)
+{
+	struct t_gui_buffer	*buf;
+	struct t_gui_nick	*nick;
+	struct chat		*chat;
+
+	LIST_FOREACH(chat, &chats, list) {
+		buf = weechat_buffer_search("gospel", chat->name);
+		if (buf != NULL && (nick = weechat_nicklist_search_nick(buf,
+		    NULL, gospel_nick_prefixed())) != NULL) {
+			weechat_nicklist_remove_nick(buf, nick);
+		}
+	}
+}
+
+/*
  * Update all information required on a chat after changes, for now
  * this only happens after a nick change.
  */
 void
 gospel_chat_update_all(void)
 {
+	struct t_gui_buffer	*buf;
 	struct chat		*chat;
 
-	LIST_FOREACH(chat, &chats, list)
+	LIST_FOREACH(chat, &chats, list) {
+		buf = weechat_buffer_search("gospel", chat->name);
+		if (buf) {
+			(void)weechat_nicklist_add_nick(buf, chat->nicks,
+			    gospel_nick_prefixed(), NULL, NULL, NULL, 1);
+		}
+
 		gospel_chat_update_input_prompt(chat);
+	}
 }
 
 /*

@@ -192,6 +192,7 @@ int	gospel_chat_init(void);
 void	gospel_chat_cleanup(void);
 void	gospel_chat_update_all(void);
 void	gospel_chat_free(struct chat *);
+void	gospel_chat_remove_self_all(void);
 void	gospel_chat_signal(u_int8_t, u_int8_t);
 void	gospel_chat_list(struct t_gui_buffer *);
 int	gospel_chat_direct(u_int64_t, u_int8_t);
