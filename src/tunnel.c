@@ -36,11 +36,11 @@ static void	tunnel_alive(struct tunnel *);
 static void	tunnel_ack_send(struct tunnel *, u_int64_t);
 static void	tunnel_ack_recv(struct tunnel *, u_int64_t);
 
-static void	tunnel_hb_send(struct tunnel *);
+static void	tunnel_hb_queue(struct tunnel *);
 static void	tunnel_hb_recv(struct tunnel *, struct litany_msg_data *);
 
-static void	tunnel_msg_resend(struct tunnel *);
-static void	tunnel_msg_send(struct tunnel *, struct litany_msg_data *);
+static void	tunnel_msg_send(struct tunnel *);
+static void	tunnel_msg_requeue(struct tunnel *);
 
 static void	tunnel_event(KYRKA *, union kyrka_event *, void *);
 static void	tunnel_heaven(const void *, size_t, u_int64_t, void *);
@@ -99,7 +99,7 @@ gospel_tunnel_new(struct chat *chat, u_int64_t flock, u_int8_t peer,
 		return (-1);
 	}
 
-	if ((tun->timer = weechat_hook_timer(1100, 0, 0,
+	if ((tun->timer = weechat_hook_timer(500, 0, 0,
 	    tunnel_weechat_manage, tun, NULL)) == NULL) {
 		gospel_tunnel_log(tun, "failed to create new timer hook");
 		gospel_tunnel_free(tun);
@@ -238,7 +238,7 @@ gospel_tunnel_log(struct tunnel *tun, const char *fmt, ...)
 }
 
 /*
- * Send the given input to our peer, wrapped as a litany message.
+ * Queue up a message to be sent in the tunnel.
  */
 void
 gospel_tunnel_send(struct tunnel *tun, const char *line)
@@ -270,9 +270,10 @@ gospel_tunnel_send(struct tunnel *tun, const char *line)
 	msg->age = ts.tv_sec;
 	msg->id = tun->msgid;
 
-	TAILQ_INSERT_TAIL(&tun->pending, msg, list);
+	msg->pending = 1;
+	TAILQ_INSERT_TAIL(&tun->waitq, msg, wlist);
+	TAILQ_INSERT_TAIL(&tun->sendq, msg, slist);
 
-	tunnel_msg_send(tun, &msg->data);
 	tun->msgid++;
 }
 
@@ -310,7 +311,8 @@ tunnel_configure(struct tunnel *tun, struct kyrka_cathedral_cfg *cfg,
 
 	memset(cfg, 0, sizeof(*cfg));
 
-	TAILQ_INIT(&tun->pending);
+	TAILQ_INIT(&tun->sendq);
+	TAILQ_INIT(&tun->waitq);
 
 	if (gospel_config_cathedral(&tun->cathedral) == -1)
 		return (-1);
@@ -365,8 +367,10 @@ tunnel_configure(struct tunnel *tun, struct kyrka_cathedral_cfg *cfg,
 		cfg->flock_dst = flock | LITANY_FLOCK_DOMAIN;
 	}
 
+	if (gospel_remembrance_active())
+		cfg->remembrance = 1;
+
 	cfg->udata = tun;
-	cfg->remembrance = 1;
 	cfg->send = tunnel_cathedral;
 
 	cfg->tunnel = tun->tid << 8 | peer;
@@ -471,8 +475,11 @@ tunnel_cathedral(const void *data, size_t len, u_int64_t magic, void *udata)
 	sin.sin_addr.s_addr = tun->cathedral.addr.sin_addr.s_addr;
 
 	if (sendto(tun->fd, data, len, 0,
-	    (struct sockaddr *)&sin, sizeof(sin)) == -1)
+	    (struct sockaddr *)&sin, sizeof(sin)) == -1) {
 		gospel_tunnel_log(tun, "sendto: %s", strerror(errno));
+	} else {
+		tun->tx_bytes += len;
+	}
 }
 
 /*
@@ -491,8 +498,11 @@ tunnel_purgatory(const void *data, size_t len, u_int64_t magic, void *udata)
 	tun = udata;
 
 	if (sendto(tun->fd, data, len, 0,
-	    (struct sockaddr *)&tun->peer, sizeof(tun->peer)) == -1)
+	    (struct sockaddr *)&tun->peer, sizeof(tun->peer)) == -1) {
 		gospel_tunnel_log(tun, "sendto: %s", strerror(errno));
+	} else {
+		tun->tx_bytes += len;
+	}
 }
 
 /*
@@ -579,9 +589,11 @@ tunnel_ack_recv(struct tunnel *tun, u_int64_t id)
 
 	PRECOND(tun != NULL);
 
-	TAILQ_FOREACH(msg, &tun->pending, list) {
+	TAILQ_FOREACH(msg, &tun->waitq, wlist) {
 		if (msg->id == id) {
-			TAILQ_REMOVE(&tun->pending, msg, list);
+			if (msg->pending)
+				TAILQ_REMOVE(&tun->sendq, msg, slist);
+			TAILQ_REMOVE(&tun->waitq, msg, wlist);
 			free(msg);
 			return;
 		}
@@ -596,29 +608,39 @@ tunnel_ack_recv(struct tunnel *tun, u_int64_t id)
 static void
 tunnel_ack_send(struct tunnel *tun, u_int64_t id)
 {
-	struct litany_msg_data	msg;
+	struct timespec		ts;
+	struct litany_msg	*msg;
 
 	PRECOND(tun != NULL);
 	PRECOND(id != LITANY_MESSAGE_SYSTEM_ID);
 
-	memset(&msg, 0, sizeof(msg));
+	if ((msg = calloc(1, sizeof(*msg))) == NULL) {
+		gospel_tunnel_log(tun,
+		    "failed to allocate new message for ACK");
+		return;
+	}
 
-	msg.id = htobe64(id);
-	msg.type = LITANY_MESSAGE_TYPE_ACK;
+	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
 
-	tunnel_msg_send(tun, &msg);
+	msg->age = ts.tv_sec;
+	msg->data.id = htobe64(id);
+	msg->data.type = LITANY_MESSAGE_TYPE_ACK;
+
+	msg->pending = 1;
+	TAILQ_INSERT_TAIL(&tun->waitq, msg, wlist);
+	TAILQ_INSERT_TAIL(&tun->sendq, msg, slist);
 }
 
 /*
- * Send a heartbeat to our peer. The heartbeat message are also
+ * Queue a heartbeat for our peer. The heartbeat message are also
  * used to carry our friendly name to the peer.
  */
 static void
-tunnel_hb_send(struct tunnel *tun)
+tunnel_hb_queue(struct tunnel *tun)
 {
 	struct litany_hb_data		*hb;
 	size_t				len;
-	struct litany_msg_data		msg;
+	struct litany_msg		*msg;
 	const char			*name;
 
 	PRECOND(tun != NULL);
@@ -627,19 +649,24 @@ tunnel_hb_send(struct tunnel *tun)
 	len = strlen(name);
 	VERIFY(len <= LITANY_NICK_MAX_SIZE);
 
-	memset(&msg, 0, sizeof(msg));
+	if ((msg = calloc(1, sizeof(*msg))) == NULL) {
+		gospel_tunnel_log(tun,
+		    "failed to allocate new message for ACK");
+		return;
+	}
 
-	msg.id = ULONG_MAX;
-	msg.type = LITANY_MESSAGE_TYPE_HEARTBEAT;
+	msg->data.id = ULONG_MAX;
+	msg->data.type = LITANY_MESSAGE_TYPE_HEARTBEAT;
 
-	hb = (struct litany_hb_data *)&msg.data[0];
+	hb = (struct litany_hb_data *)&msg->data.data[0];
 
 	hb->uid = tun->local_uid;
 	hb->typing = gospel_typing_active(tun->chat);
-
 	memcpy(hb->name, name, len);
 
-	tunnel_msg_send(tun, &msg);
+	msg->pending = 1;
+	TAILQ_INSERT_TAIL(&tun->waitq, msg, wlist);
+	TAILQ_INSERT_TAIL(&tun->sendq, msg, slist);
 }
 
 /*
@@ -714,44 +741,73 @@ tunnel_hb_recv(struct tunnel *tun, struct litany_msg_data *msg)
 }
 
 /*
- * Send the given message into the tunnel.
+ * Send the first mesasge in our msg queue to our peer.
+ * If no message was present, send a heartbeat instead.
  */
 static void
-tunnel_msg_send(struct tunnel *tun, struct litany_msg_data *msg)
+tunnel_msg_send(struct tunnel *tun)
 {
-	PRECOND(tun != NULL);
-	PRECOND(msg != NULL);
+	struct litany_msg	*msg;
 
-	if (kyrka_heaven_input(tun->ctx, msg, sizeof(*msg)) == -1 &&
+	PRECOND(tun != NULL);
+
+	/* XXX - might want to rethink this. */
+	if (TAILQ_EMPTY(&tun->sendq))
+		tunnel_hb_queue(tun);
+
+	msg = TAILQ_FIRST(&tun->sendq);
+	VERIFY(msg != NULL);
+
+	msg->pending = 0;
+	TAILQ_REMOVE(&tun->sendq, msg, slist);
+
+	if (kyrka_heaven_input(tun->ctx, &msg->data, sizeof(msg->data)) == -1 &&
 	    kyrka_last_error(tun->ctx) != KYRKA_ERROR_NO_TX_KEY) {
 		gospel_tunnel_log(tun, "kyrka_heaven_input: %d",
 		    kyrka_last_error(tun->ctx));
 	}
+
+	if (msg->data.type != LITANY_MESSAGE_TYPE_TEXT) {
+		TAILQ_REMOVE(&tun->waitq, msg, wlist);
+		free(msg);
+	}
 }
 
 /*
- * Resend pending messages to the peer once they have become stale.
+ * Requeue pending messages once they become stale. Removes non text msgs
+ * if they for some reason have been on the waitq for >= 5 seconds.
  */
 static void
-tunnel_msg_resend(struct tunnel *tun)
+tunnel_msg_requeue(struct tunnel *tun)
 {
 	struct timespec		ts;
-	struct litany_msg	*msg;
+	struct litany_msg	*msg, *next;
 
 	PRECOND(tun != NULL);
 
 	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
 
-	TAILQ_FOREACH(msg, &tun->pending, list) {
+	for (msg = TAILQ_FIRST(&tun->waitq); msg != NULL; msg = next) {
+		next = TAILQ_NEXT(msg, wlist);
+
 		if ((ts.tv_sec - msg->age) >= 5) {
-			msg->age = ts.tv_sec;
-			tunnel_msg_send(tun, &msg->data);
+			if (msg->data.type != LITANY_MESSAGE_TYPE_TEXT) {
+				if (msg->pending)
+					TAILQ_REMOVE(&tun->sendq, msg, slist);
+				TAILQ_REMOVE(&tun->waitq, msg, wlist);
+				free(msg);
+			} else if (msg->pending == 0) {
+				msg->age = ts.tv_sec;
+				msg->pending = 1;
+				TAILQ_INSERT_TAIL(&tun->sendq, msg, slist);
+			}
 		}
 	}
 }
 
 /*
- * Callback called once every second, we do tunnel book-keeping here.
+ * Callback called once every 500ms, we do tunnel management here,
+ * including the sending of queued up packets.
  */
 static int
 tunnel_weechat_manage(const void *ptr, void *udata, int calls)
@@ -793,29 +849,36 @@ tunnel_weechat_manage(const void *ptr, void *udata, int calls)
 		}
 	}
 
-	if (kyrka_key_manage(tun->ctx) == -1 &&
-	    kyrka_last_error(tun->ctx) != KYRKA_ERROR_NO_SECRET) {
-		gospel_tunnel_log(tun, "kyrka_key_manage: %d",
-		    kyrka_last_error(tun->ctx));
-	}
+	if (ts.tv_sec >= tun->next_mgmt) {
+		tun->next_mgmt = ts.tv_sec + 1;
 
-	if (kyrka_cathedral_notify(tun->ctx) == -1) {
-		gospel_tunnel_log(tun, "kyrka_cathedral_notify: %d",
-		    kyrka_last_error(tun->ctx));
-	}
-
-	if (tun->p2p_allowed) {
-		if (kyrka_cathedral_nat_detection(tun->ctx) == -1) {
-			gospel_tunnel_log(tun,
-			    "kyrka_cathedral_nat_detection: %d",
+		if (kyrka_key_manage(tun->ctx) == -1 &&
+		    kyrka_last_error(tun->ctx) != KYRKA_ERROR_NO_SECRET) {
+			gospel_tunnel_log(tun, "kyrka_key_manage: %d",
 			    kyrka_last_error(tun->ctx));
 		}
+
+		if (kyrka_cathedral_notify(tun->ctx) == -1) {
+			gospel_tunnel_log(tun, "kyrka_cathedral_notify: %d",
+			    kyrka_last_error(tun->ctx));
+		}
+
+		if (tun->p2p_allowed && ts.tv_sec >= tun->next_nat) {
+			tun->next_nat = ts.tv_sec + 5;
+
+			if (kyrka_cathedral_nat_detection(tun->ctx) == -1) {
+				gospel_tunnel_log(tun,
+				    "kyrka_cathedral_nat_detection: %d",
+				    kyrka_last_error(tun->ctx));
+			}
+		}
+
+		if (tun->online)
+			tunnel_msg_requeue(tun);
 	}
 
-	if (tun->online) {
-		tunnel_hb_send(tun);
-		tunnel_msg_resend(tun);
-	}
+	if (tun->online)
+		tunnel_msg_send(tun);
 
 	if (!memcmp(&tun->peer, &tun->cathedral.addr, sizeof(tun->peer)))
 		is_cathedral = 1;
@@ -862,6 +925,8 @@ tunnel_weechat_socket(const void *ptr, void *udata, int fd)
 	    kyrka_last_error(tun->ctx) != KYRKA_ERROR_NO_RX_KEY) {
 		gospel_tunnel_log(tun, "kyrka_purgatory_input: %d",
 		    kyrka_last_error(tun->ctx));
+	} else {
+		tun->rx_bytes += ret;
 	}
 
 	return (WEECHAT_RC_OK);

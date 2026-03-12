@@ -59,8 +59,12 @@ struct litany_msg_data {
 struct litany_msg {
 	u_int64_t		id;
 	time_t			age;
+	int			pending;
+
 	struct litany_msg_data	data;
-	TAILQ_ENTRY(litany_msg)	list;
+
+	TAILQ_ENTRY(litany_msg)	wlist;
+	TAILQ_ENTRY(litany_msg)	slist;
 };
 
 TAILQ_HEAD(litany_msg_list, litany_msg);

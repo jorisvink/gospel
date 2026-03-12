@@ -173,7 +173,9 @@ gospel_chat_list(struct t_gui_buffer *buf)
 	struct timespec		ts;
 	struct in_addr		in;
 	struct tunnel		*tun;
+	struct litany_msg	*msg;
 	struct chat		*chat;
+	u_int32_t		waiting, sending;
 
 	PRECOND(buf != NULL);
 
@@ -191,6 +193,15 @@ gospel_chat_list(struct t_gui_buffer *buf)
 		    weechat_color("*yellow"), chat->name);
 
 		LIST_FOREACH(tun, &chat->tunnels, list) {
+			waiting = 0;
+			sending = 0;
+
+			TAILQ_FOREACH(msg, &tun->waitq, wlist)
+				waiting++;
+
+			TAILQ_FOREACH(msg, &tun->sendq, wlist)
+				sending++;
+
 			weechat_printf(buf, "   |-> %s%02x+%s%s",
 			    weechat_color(".gray"), tun->peerid,
 			    weechat_color("white"), tun->name);
@@ -201,9 +212,13 @@ gospel_chat_list(struct t_gui_buffer *buf)
 			weechat_printf(buf, "           %s%s:%u",
 			    weechat_color("white"), inet_ntoa(in),
 			    be16toh(tun->cathedral.addr.sin_port));
-			weechat_printf(buf, "           %salive %" PRIu64
-			    " second(s) ago", weechat_color("white"),
-			    ts.tv_sec - tun->cathedral.last);
+
+			if (gospel_remembrance_active()) {
+				weechat_printf(buf, "           %salive %"
+				    PRIu64 " second(s) ago",
+				    weechat_color("white"),
+				    ts.tv_sec - tun->cathedral.last);
+			}
 
 			in.s_addr = tun->peer.sin_addr.s_addr;
 			weechat_printf(buf, "         %speer",
@@ -214,6 +229,20 @@ gospel_chat_list(struct t_gui_buffer *buf)
 			weechat_printf(buf, "           %salive %" PRIu64
 			    " second(s) ago", weechat_color("white"),
 			    ts.tv_sec - tun->age);
+
+			weechat_printf(buf, "         %squeues",
+			    weechat_color("lightcyan"));
+			weechat_printf(buf, "           %swaitq: %u",
+			    weechat_color("white"), waiting);
+			weechat_printf(buf, "           %ssendq: %u",
+			    weechat_color("white"), sending);
+
+			weechat_printf(buf, "         %sbandwidth",
+			    weechat_color("lightcyan"));
+			weechat_printf(buf, "           %stx: %" PRIu64
+			    " bytes", weechat_color("white"), tun->tx_bytes);
+			weechat_printf(buf, "           %srx: %" PRIu64
+			    " bytes", weechat_color("white"), tun->rx_bytes);
 		}
 	}
 }

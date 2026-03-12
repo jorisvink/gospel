@@ -119,6 +119,9 @@ struct tunnel {
 	u_int16_t		group;
 
 	time_t			age;
+	time_t			next_nat;
+	time_t			next_mgmt;
+
 	u_int64_t		local_uid;
 	u_int64_t		remote_uid;
 
@@ -126,6 +129,9 @@ struct tunnel {
 	u_int8_t		peerid;
 	int			online;
 	int			p2p_allowed;
+
+	u_int64_t		tx_bytes;
+	u_int64_t		rx_bytes;
 
 	KYRKA			*ctx;
 	struct sockaddr_in	peer;
@@ -137,7 +143,9 @@ struct tunnel {
 	struct t_hook		*events;
 
 	struct chat		*chat;
-	struct litany_msg_list	pending;
+
+	struct litany_msg_list	sendq;
+	struct litany_msg_list	waitq;
 
 	char			name[LITANY_NICK_MAX_SIZE + 1];
 

@@ -98,4 +98,11 @@ This is because the litany protocol depends on sending send full-sized
 message frames for each message that is sent regardless of the length
 of the plaintext message.
 
-This is done to prevent traffic analysis on what is being communicated.
+All messages (including acks and heartbeats) are queued up and a
+single message is sent every 500ms.
+
+The fixed-size messages in combination with the steady pulse of messages
+makes traffic analysis much harder as each packet could be text, acks or
+heartbeats.
+
+The downside is that it generates a lot of traffic over-time.
