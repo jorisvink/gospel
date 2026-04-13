@@ -154,6 +154,22 @@ gospel_cleanup(void)
 }
 
 /*
+ * Returns 1 if both given inet addresses and ports match.
+ */
+int
+gospel_inet_match(struct sockaddr_in *s1, struct sockaddr_in *s2)
+{
+	PRECOND(s1 != NULL);
+	PRECOND(s2 != NULL);
+
+	if (s1->sin_addr.s_addr == s2->sin_addr.s_addr &&
+	    s1->sin_port == s2->sin_port)
+		return (1);
+
+	return (0);
+}
+
+/*
  * Log a message into our system buffer.
  */
 void

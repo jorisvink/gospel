@@ -188,6 +188,7 @@ void	gospel_logv(const char *, va_list);
 int	gospel_typing_active(struct chat *);
 int	gospel_config_cathedral(struct cathedral *);
 void	gospel_weechat_signal(const char *, const char *, ...);
+int	gospel_inet_match(struct sockaddr_in *, struct sockaddr_in *);
 void	gospel_log(const char *, ...) __attribute__((format (printf, 1, 2)));
 void	gospel_fatal(const char *, ...)
 	    __attribute__((format (printf, 1, 2))) __attribute__((noreturn));

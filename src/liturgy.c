@@ -34,7 +34,7 @@ static int	liturgy_weechat_manage(const void *, void *, int);
 static int	liturgy_weechat_socket(const void *, void *, int);
 
 static void	liturgy_event(KYRKA *, union kyrka_event *, void *);
-static void	liturgy_cathedral(const void *, size_t, u_int64_t, void *);
+static void	liturgy_cathedral(struct kyrka_packet *, u_int64_t, void *);
 static int	liturgy_configure(struct liturgy *,
 		    struct kyrka_cathedral_cfg *, u_int16_t);
 
@@ -49,6 +49,7 @@ gospel_liturgy_new(struct chat *chat, u_int16_t group, int sig)
 {
 	struct kyrka_cathedral_cfg	cfg;
 	struct liturgy			*lit;
+	u_int64_t			shroud;
 
 	PRECOND(chat != NULL);
 	PRECOND(chat->liturgy == NULL);
@@ -96,6 +97,15 @@ gospel_liturgy_new(struct chat *chat, u_int16_t group, int sig)
 		    kyrka_last_error(lit->ctx));
 		gospel_liturgy_free(lit);
 		return (-1);
+	}
+
+	if (gospel_config_uint64("shroud", &shroud, 10) != -1 && shroud == 1) {
+		if (kyrka_shroud_enable(lit->ctx) == -1) {
+			weechat_printf(NULL, "failed to enable shroud: %d",
+			    kyrka_last_error(lit->ctx));
+			gospel_liturgy_free(lit);
+			return (-1);
+		}
 	}
 
 	chat->liturgy = lit;
@@ -238,6 +248,9 @@ liturgy_event(KYRKA *ctx, union kyrka_event *evt, void *udata)
 		if (lit->sig)
 			gospel_remembrance_save(&evt->remembrance);
 		break;
+	case KYRKA_EVENT_LOGMSG:
+		gospel_log("[liturgy] log: %s", evt->logmsg.log);
+		break;
 	default:
 		gospel_log("received event %d for a liturgy", evt->type);
 		break;
@@ -328,15 +341,21 @@ liturgy_tunnel_signaling(struct liturgy *lit, u_int8_t peer, int state)
  * the cathedral.
  */
 static void
-liturgy_cathedral(const void *data, size_t len, u_int64_t magic, void *udata)
+liturgy_cathedral(struct kyrka_packet *pkt, u_int64_t magic, void *udata)
 {
+	size_t			len;
 	struct liturgy		*lit;
+	u_int8_t		*data;
 
-	PRECOND(data != NULL);
-	PRECOND(len > 0);
+	PRECOND(pkt != NULL);
 	PRECOND(udata != NULL);
 
 	lit = udata;
+
+	if ((data = kyrka_packet_sendbuf(lit->ctx, pkt, &len)) == NULL) {
+		gospel_log("failed to get liturgy send buffer");
+		return;
+	}
 
 	if (sendto(lit->fd, data, len, 0,
 	    (struct sockaddr *)&lit->cathedral.addr,
@@ -387,9 +406,11 @@ static int
 liturgy_weechat_socket(const void *ptr, void *udata, int fd)
 {
 	union deconst		p;
+	size_t			len;
 	ssize_t			ret;
+	struct kyrka_packet	pkt;
 	struct liturgy		*lit;
-	char			pkt[1500];
+	u_int8_t		*data;
 
 	PRECOND(ptr != NULL);
 	PRECOND(udata == NULL);
@@ -398,13 +419,21 @@ liturgy_weechat_socket(const void *ptr, void *udata, int fd)
 	p.cp = ptr;
 	lit = p.p;
 
-	ret = recv(lit->fd, pkt, sizeof(pkt), MSG_DONTWAIT);
-	if (ret == -1 && errno != EAGAIN) {
+	if ((data = kyrka_packet_recvbuf(lit->ctx, &pkt, &len)) == NULL) {
+		gospel_log("kyrka_packet_recvbuf: %d",
+		    kyrka_last_error(lit->ctx));
+		return (WEECHAT_RC_OK);
+	}
+
+	if ((ret = recv(lit->fd, data, len, MSG_DONTWAIT)) == -1) {
 		gospel_log("liturgy recv: %s", strerror(errno));
 		return (WEECHAT_RC_OK);
 	}
 
-	if (kyrka_purgatory_input(lit->ctx, pkt, ret) == -1) {
+	pkt.length = ret;
+	pkt.shroud = KYRKA_PACKET_SHROUD_CATHEDRAL;
+
+	if (kyrka_purgatory_input(lit->ctx, &pkt) == -1) {
 		gospel_log("kyrka_purgatory_input: %d",
 		    kyrka_last_error(lit->ctx));
 	}

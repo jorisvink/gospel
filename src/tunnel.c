@@ -43,9 +43,9 @@ static void	tunnel_msg_send(struct tunnel *);
 static void	tunnel_msg_requeue(struct tunnel *);
 
 static void	tunnel_event(KYRKA *, union kyrka_event *, void *);
-static void	tunnel_heaven(const void *, size_t, u_int64_t, void *);
-static void	tunnel_cathedral(const void *, size_t, u_int64_t, void *);
-static void	tunnel_purgatory(const void *, size_t, u_int64_t, void *);
+static void	tunnel_heaven(struct kyrka_packet *, u_int64_t, void *);
+static void	tunnel_cathedral(struct kyrka_packet *, u_int64_t, void *);
+static void	tunnel_purgatory(struct kyrka_packet *, u_int64_t, void *);
 static int	tunnel_configure(struct tunnel *, struct kyrka_cathedral_cfg *,
 		    u_int64_t, u_int8_t, u_int16_t);
 
@@ -72,6 +72,7 @@ gospel_tunnel_new(struct chat *chat, u_int64_t flock, u_int8_t peer,
 {
 	struct kyrka_cathedral_cfg	cfg;
 	struct tunnel			*tun;
+	u_int64_t			shroud;
 
 	PRECOND(chat != NULL);
 
@@ -142,6 +143,15 @@ gospel_tunnel_new(struct chat *chat, u_int64_t flock, u_int8_t peer,
 
 	if (tun->group == 0)
 		gospel_chat_signal(tun->peerid, 1);
+
+	if (gospel_config_uint64("shroud", &shroud, 10) != -1 && shroud == 1) {
+		if (kyrka_shroud_enable(tun->ctx) == -1) {
+			weechat_printf(NULL, "failed to enable shroud: %d",
+			    kyrka_last_error(tun->ctx));
+			gospel_tunnel_free(tun);
+			return (-1);
+		}
+	}
 
 	tunnel_alive(tun);
 	gospel_log("[tunnel] %" PRIx64 ":%04x created (cathedral:%p)",
@@ -437,6 +447,16 @@ tunnel_event(KYRKA *ctx, union kyrka_event *evt, void *udata)
 				gospel_tunnel_log(tun,
 				    "[peer]: p2p discovery %s:%u",
 				    inet_ntoa(in), htons(evt->peer.port));
+
+				if (kyrka_p2p_active(tun->ctx, 1) == -1) {
+					gospel_tunnel_log(tun,
+					    "[peer]: kyrka_p2p_active");
+				}
+			} else {
+				if (kyrka_p2p_active(tun->ctx, 0) == -1) {
+					gospel_tunnel_log(tun,
+					    "[peer]: kyrka_p2p_active");
+				}
 			}
 		}
 		break;
@@ -454,14 +474,15 @@ tunnel_event(KYRKA *ctx, union kyrka_event *evt, void *udata)
  * the cathedral.
  */
 static void
-tunnel_cathedral(const void *data, size_t len, u_int64_t magic, void *udata)
+tunnel_cathedral(struct kyrka_packet *pkt, u_int64_t magic, void *udata)
 {
+	size_t			len;
 	struct sockaddr_in	sin;
 	u_int16_t		port;
 	struct tunnel		*tun;
+	u_int8_t		*data;
 
-	PRECOND(data != NULL);
-	PRECOND(len > 0);
+	PRECOND(pkt != NULL);
 	PRECOND(udata != NULL);
 
 	tun = udata;
@@ -473,6 +494,12 @@ tunnel_cathedral(const void *data, size_t len, u_int64_t magic, void *udata)
 	sin.sin_family = AF_INET;
 	sin.sin_port = htobe16(port);
 	sin.sin_addr.s_addr = tun->cathedral.addr.sin_addr.s_addr;
+
+	if ((data = kyrka_packet_sendbuf(tun->ctx, pkt, &len)) == NULL) {
+		gospel_tunnel_log(tun, "kyrka_packet_sendbuf: %d",
+		    kyrka_last_error(tun->ctx));
+		return;
+	}
 
 	if (sendto(tun->fd, data, len, 0,
 	    (struct sockaddr *)&sin, sizeof(sin)) == -1) {
@@ -487,15 +514,22 @@ tunnel_cathedral(const void *data, size_t len, u_int64_t magic, void *udata)
  * the purgatory side of things.
  */
 static void
-tunnel_purgatory(const void *data, size_t len, u_int64_t magic, void *udata)
+tunnel_purgatory(struct kyrka_packet *pkt, u_int64_t magic, void *udata)
 {
+	size_t			len;
 	struct tunnel		*tun;
+	u_int8_t		*data;
 
-	PRECOND(data != NULL);
-	PRECOND(len > 0);
+	PRECOND(pkt != NULL);
 	PRECOND(udata != NULL);
 
 	tun = udata;
+
+	if ((data = kyrka_packet_sendbuf(tun->ctx, pkt, &len)) == NULL) {
+		gospel_tunnel_log(tun, "kyrka_packet_sendbuf: %d",
+		    kyrka_last_error(tun->ctx));
+		return;
+	}
 
 	if (sendto(tun->fd, data, len, 0,
 	    (struct sockaddr *)&tun->peer, sizeof(tun->peer)) == -1) {
@@ -510,54 +544,53 @@ tunnel_purgatory(const void *data, size_t len, u_int64_t magic, void *udata)
  * the heaven side of things.
  */
 static void
-tunnel_heaven(const void *data, size_t len, u_int64_t magic, void *udata)
+tunnel_heaven(struct kyrka_packet *pkt, u_int64_t magic, void *udata)
 {
-	struct litany_msg_data		msg;
+	struct litany_msg_data		*msg;
 	struct tunnel			*tun;
 	char				line[LITANY_MESSAGE_MAX_SIZE + 1];
 
-	PRECOND(data != NULL);
-	PRECOND(len > 0);
+	PRECOND(pkt != NULL);
 	PRECOND(udata != NULL);
 
 	tun = udata;
 
-	if (len != sizeof(msg)) {
+	if (pkt->length != sizeof(*msg)) {
 		gospel_tunnel_log(tun,
 		    "ignoring malformed packet (%zu vs %zu bytes)",
-		    len, sizeof(msg));
+		    pkt->length, sizeof(*msg));
 		return;
 	}
 
-	memcpy(&msg, data, sizeof(msg));
+	msg = kyrka_packet_data(pkt);
 
-	msg.id = be64toh(msg.id);
-	msg.len = be16toh(msg.len);
+	msg->id = be64toh(msg->id);
+	msg->len = be16toh(msg->len);
 
-	if (msg.id == LITANY_MESSAGE_SYSTEM_ID)
+	if (msg->id == LITANY_MESSAGE_SYSTEM_ID)
 		return;
 
-	if (msg.len > sizeof(msg.data) || msg.len >= sizeof(line)) {
+	if (msg->len > sizeof(msg->data) || msg->len >= sizeof(line)) {
 		gospel_tunnel_log(tun,
-		    "ignoring message with invalid length (%u)", msg.len);
+		    "ignoring message with invalid length (%u)", msg->len);
 		return;
 	}
 
 	tunnel_alive(tun);
 
-	switch (msg.type) {
+	switch (msg->type) {
 	case LITANY_MESSAGE_TYPE_TEXT:
-		memcpy(line, msg.data, msg.len);
-		line[msg.len] = '\0';
+		memcpy(line, msg->data, msg->len);
+		line[msg->len] = '\0';
 		weechat_utf8_normalize(line, '?');
 		gospel_chat_msg(tun->chat, tun, line);
-		tunnel_ack_send(tun, msg.id);
+		tunnel_ack_send(tun, msg->id);
 		break;
 	case LITANY_MESSAGE_TYPE_ACK:
-		tunnel_ack_recv(tun, msg.id);
+		tunnel_ack_recv(tun, msg->id);
 		break;
 	case LITANY_MESSAGE_TYPE_HEARTBEAT:
-		tunnel_hb_recv(tun, &msg);
+		tunnel_hb_recv(tun, msg);
 		break;
 	default:
 		gospel_tunnel_log(tun, "peer sending us weird things");
@@ -747,7 +780,10 @@ tunnel_hb_recv(struct tunnel *tun, struct litany_msg_data *msg)
 static void
 tunnel_msg_send(struct tunnel *tun)
 {
+	size_t			len;
+	struct kyrka_packet	pkt;
 	struct litany_msg	*msg;
+	u_int8_t		*data;
 
 	PRECOND(tun != NULL);
 
@@ -761,7 +797,23 @@ tunnel_msg_send(struct tunnel *tun)
 	msg->pending = 0;
 	TAILQ_REMOVE(&tun->sendq, msg, slist);
 
-	if (kyrka_heaven_input(tun->ctx, &msg->data, sizeof(msg->data)) == -1 &&
+	if ((data = kyrka_packet_databuf(tun->ctx, &pkt, &len)) == NULL) {
+		gospel_tunnel_log(tun, "kyrka_packet_databuf: %d",
+		    kyrka_last_error(tun->ctx));
+		return;
+	}
+
+	VERIFY(sizeof(msg->data) <= len);
+
+	pkt.length = sizeof(msg->data);
+	memcpy(data, &msg->data, sizeof(msg->data));
+
+	if (gospel_inet_match(&tun->peer, &tun->cathedral.addr))
+		pkt.shroud = KYRKA_PACKET_SHROUD_CATHEDRAL;
+	else
+		pkt.shroud = KYRKA_PACKET_SHROUD_PEER;
+
+	if (kyrka_heaven_input(tun->ctx, &pkt) == -1 &&
 	    kyrka_last_error(tun->ctx) != KYRKA_ERROR_NO_TX_KEY) {
 		gospel_tunnel_log(tun, "kyrka_heaven_input: %d",
 		    kyrka_last_error(tun->ctx));
@@ -904,9 +956,13 @@ static int
 tunnel_weechat_socket(const void *ptr, void *udata, int fd)
 {
 	union deconst		p;
+	size_t			len;
 	ssize_t			ret;
+	struct sockaddr_in	sin;
+	struct kyrka_packet	pkt;
 	struct tunnel		*tun;
-	char			pkt[1500];
+	u_int8_t		*data;
+	socklen_t		socklen;
 
 	PRECOND(ptr != NULL);
 	PRECOND(udata == NULL);
@@ -915,13 +971,28 @@ tunnel_weechat_socket(const void *ptr, void *udata, int fd)
 	p.cp = ptr;
 	tun = p.p;
 
-	ret = recv(tun->fd, pkt, sizeof(pkt), MSG_DONTWAIT);
-	if (ret == -1 && errno != EAGAIN) {
-		gospel_tunnel_log(tun, "recv: %s", strerror(errno));
+	if ((data = kyrka_packet_recvbuf(tun->ctx, &pkt, &len)) == NULL) {
+		gospel_log("kyrka_packet_recvbuf: %d",
+		    kyrka_last_error(tun->ctx));
 		return (WEECHAT_RC_OK);
 	}
 
-	if (kyrka_purgatory_input(tun->ctx, pkt, ret) == -1 &&
+	socklen = sizeof(sin);
+
+	if ((ret = recvfrom(tun->fd, data, len, MSG_DONTWAIT,
+	    (struct sockaddr *)&sin, &socklen)) == -1) {
+		gospel_log("recv: %s", strerror(errno));
+		return (WEECHAT_RC_OK);
+	}
+
+	pkt.length = ret;
+
+	if (gospel_inet_match(&sin, &tun->cathedral.addr))
+		pkt.shroud = KYRKA_PACKET_SHROUD_CATHEDRAL;
+	else
+		pkt.shroud = KYRKA_PACKET_SHROUD_PEER;
+
+	if (kyrka_purgatory_input(tun->ctx, &pkt) == -1 &&
 	    kyrka_last_error(tun->ctx) != KYRKA_ERROR_NO_RX_KEY) {
 		gospel_tunnel_log(tun, "kyrka_purgatory_input: %d",
 		    kyrka_last_error(tun->ctx));
