@@ -170,8 +170,8 @@ gospel_chat_find(u_int64_t flock, u_int16_t id)
 void
 gospel_chat_list(struct t_gui_buffer *buf)
 {
-	struct timespec		ts;
 	struct in_addr		in;
+	u_int64_t		now;
 	struct tunnel		*tun;
 	struct litany_msg	*msg;
 	struct chat		*chat;
@@ -185,7 +185,6 @@ gospel_chat_list(struct t_gui_buffer *buf)
 		return;
 	}
 
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
 	weechat_printf(buf, "%sactive gospels", weechat_color("*magenta"));
 
 	LIST_FOREACH(chat, &chats, list) {
@@ -195,6 +194,7 @@ gospel_chat_list(struct t_gui_buffer *buf)
 		LIST_FOREACH(tun, &chat->tunnels, list) {
 			waiting = 0;
 			sending = 0;
+			now = gospel_ms();
 
 			TAILQ_FOREACH(msg, &tun->waitq, wlist)
 				waiting++;
@@ -213,12 +213,10 @@ gospel_chat_list(struct t_gui_buffer *buf)
 			    weechat_color("white"), inet_ntoa(in),
 			    be16toh(tun->cathedral.addr.sin_port));
 
-			if (gospel_remembrance_active()) {
-				weechat_printf(buf, "           %salive %"
-				    PRIu64 " second(s) ago",
-				    weechat_color("white"),
-				    ts.tv_sec - tun->cathedral.last);
-			}
+			weechat_printf(buf, "           %salive %"
+			    PRIu64 " second(s) ago",
+			    weechat_color("white"),
+			    (now / 1000) - tun->cathedral.last);
 
 			in.s_addr = tun->peer.sin_addr.s_addr;
 			weechat_printf(buf, "         %speer",
@@ -228,7 +226,7 @@ gospel_chat_list(struct t_gui_buffer *buf)
 			    be16toh(tun->peer.sin_port));
 			weechat_printf(buf, "           %salive %" PRIu64
 			    " second(s) ago", weechat_color("white"),
-			    ts.tv_sec - tun->age);
+			    (now - tun->age) / 1000);
 
 			weechat_printf(buf, "         %squeues",
 			    weechat_color("lightcyan"));

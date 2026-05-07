@@ -253,7 +253,6 @@ gospel_tunnel_log(struct tunnel *tun, const char *fmt, ...)
 void
 gospel_tunnel_send(struct tunnel *tun, const char *line)
 {
-	struct timespec		ts;
 	size_t			len;
 	struct litany_msg	*msg;
 
@@ -275,10 +274,8 @@ gospel_tunnel_send(struct tunnel *tun, const char *line)
 	msg->data.id = htobe64(tun->msgid);
 	msg->data.type = LITANY_MESSAGE_TYPE_TEXT;
 
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
-
-	msg->age = ts.tv_sec;
 	msg->id = tun->msgid;
+	msg->age = gospel_ms();
 
 	msg->pending = 1;
 	TAILQ_INSERT_TAIL(&tun->waitq, msg, wlist);
@@ -377,9 +374,6 @@ tunnel_configure(struct tunnel *tun, struct kyrka_cathedral_cfg *cfg,
 		cfg->flock_dst = flock | LITANY_FLOCK_DOMAIN;
 	}
 
-	if (gospel_remembrance_active())
-		cfg->remembrance = 1;
-
 	cfg->udata = tun;
 	cfg->send = tunnel_cathedral;
 
@@ -404,6 +398,8 @@ tunnel_event(KYRKA *ctx, union kyrka_event *evt, void *udata)
 	PRECOND(udata != NULL);
 
 	tun = udata;
+
+	gospel_remembrance_cathedral_alive(&tun->cathedral);
 
 	switch (evt->type) {
 	case KYRKA_EVENT_KEYS_INFO:
@@ -459,9 +455,6 @@ tunnel_event(KYRKA *ctx, union kyrka_event *evt, void *udata)
 				}
 			}
 		}
-		break;
-	case KYRKA_EVENT_REMEMBRANCE_RECEIVED:
-		gospel_remembrance_cathedral_alive(&tun->cathedral);
 		break;
 	default:
 		gospel_tunnel_log(tun, "event %u", evt->type);
@@ -604,12 +597,9 @@ tunnel_heaven(struct kyrka_packet *pkt, u_int64_t magic, void *udata)
 static void
 tunnel_alive(struct tunnel *tun)
 {
-	struct timespec		ts;
-
 	PRECOND(tun != NULL);
 
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
-	tun->age = ts.tv_sec;
+	tun->age = gospel_ms();
 }
 
 /*
@@ -641,7 +631,6 @@ tunnel_ack_recv(struct tunnel *tun, u_int64_t id)
 static void
 tunnel_ack_send(struct tunnel *tun, u_int64_t id)
 {
-	struct timespec		ts;
 	struct litany_msg	*msg;
 
 	PRECOND(tun != NULL);
@@ -653,9 +642,7 @@ tunnel_ack_send(struct tunnel *tun, u_int64_t id)
 		return;
 	}
 
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
-
-	msg->age = ts.tv_sec;
+	msg->age = gospel_ms();
 	msg->data.id = htobe64(id);
 	msg->data.type = LITANY_MESSAGE_TYPE_ACK;
 
@@ -832,24 +819,24 @@ tunnel_msg_send(struct tunnel *tun)
 static void
 tunnel_msg_requeue(struct tunnel *tun)
 {
-	struct timespec		ts;
+	u_int64_t		now;
 	struct litany_msg	*msg, *next;
 
 	PRECOND(tun != NULL);
 
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+	now = gospel_ms();
 
 	for (msg = TAILQ_FIRST(&tun->waitq); msg != NULL; msg = next) {
 		next = TAILQ_NEXT(msg, wlist);
 
-		if ((ts.tv_sec - msg->age) >= 5) {
+		if ((now - msg->age) >= 5000) {
 			if (msg->data.type != LITANY_MESSAGE_TYPE_TEXT) {
 				if (msg->pending)
 					TAILQ_REMOVE(&tun->sendq, msg, slist);
 				TAILQ_REMOVE(&tun->waitq, msg, wlist);
 				free(msg);
 			} else if (msg->pending == 0) {
-				msg->age = ts.tv_sec;
+				msg->age = gospel_ms();
 				msg->pending = 1;
 				TAILQ_INSERT_TAIL(&tun->sendq, msg, slist);
 			}
@@ -865,7 +852,7 @@ static int
 tunnel_weechat_manage(const void *ptr, void *udata, int calls)
 {
 	union deconst		p;
-	struct timespec		ts;
+	u_int64_t		now;
 	struct tunnel		*tun;
 	struct t_gui_nick	*nick;
 	struct t_gui_buffer	*cbuf;
@@ -879,9 +866,9 @@ tunnel_weechat_manage(const void *ptr, void *udata, int calls)
 	p.cp = ptr;
 	tun = p.p;
 
-	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+	now = gospel_ms();
 
-	if (tun->online == 1 && (ts.tv_sec - tun->age) >= 10) {
+	if (tun->online == 1 && (now - tun->age) >= 10000) {
 		tun->online = 0;
 
 		cbuf = weechat_buffer_search("gospel", tun->chat->name);
@@ -901,8 +888,8 @@ tunnel_weechat_manage(const void *ptr, void *udata, int calls)
 		}
 	}
 
-	if (ts.tv_sec >= tun->next_mgmt) {
-		tun->next_mgmt = ts.tv_sec + 1;
+	if (now >= tun->next_mgmt) {
+		tun->next_mgmt = now + 5000;
 
 		if (kyrka_key_manage(tun->ctx) == -1 &&
 		    kyrka_last_error(tun->ctx) != KYRKA_ERROR_NO_SECRET) {
@@ -915,9 +902,7 @@ tunnel_weechat_manage(const void *ptr, void *udata, int calls)
 			    kyrka_last_error(tun->ctx));
 		}
 
-		if (tun->p2p_allowed && ts.tv_sec >= tun->next_nat) {
-			tun->next_nat = ts.tv_sec + 5;
-
+		if (tun->p2p_allowed) {
 			if (kyrka_cathedral_nat_detection(tun->ctx) == -1) {
 				gospel_tunnel_log(tun,
 				    "kyrka_cathedral_nat_detection: %d",

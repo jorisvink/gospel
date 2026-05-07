@@ -118,9 +118,8 @@ struct tunnel {
 	u_int16_t		tid;
 	u_int16_t		group;
 
-	time_t			age;
-	time_t			next_nat;
-	time_t			next_mgmt;
+	u_int64_t		age;
+	u_int64_t		next_mgmt;
 
 	u_int64_t		local_uid;
 	u_int64_t		remote_uid;
@@ -210,6 +209,7 @@ void	gospel_chat_update_input_prompt(struct chat *);
 void	gospel_chat_log(struct chat *, const char *, ...);
 void	gospel_chat_msg(struct chat *, struct tunnel *, const char *);
 
+u_int64_t	gospel_ms(void);
 struct chat	*gospel_system_chat(void);
 struct chat	*gospel_chat_find_name(const char *);
 struct chat	*gospel_chat_find(u_int64_t flock, u_int16_t);

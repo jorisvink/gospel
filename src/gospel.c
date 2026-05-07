@@ -371,6 +371,19 @@ gospel_weechat_signal(const char *signal, const char *fmt, ...)
 }
 
 /*
+ * Get current time since boot as milliseconds.
+ */
+u_int64_t
+gospel_ms(void)
+{
+	struct timespec		ts;
+
+	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	return ((ts.tv_sec * 1000 + (ts.tv_nsec / 1000000)));
+}
+
+/*
  * Called when typing status changes.
  */
 static int

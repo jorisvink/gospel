@@ -177,9 +177,6 @@ gospel_remembrance_cathedral_alive(struct cathedral *cat)
 
 	PRECOND(cat != NULL);
 
-	if (gospel_remembrance_active() == 0)
-		return;
-
 	(void)clock_gettime(CLOCK_MONOTONIC, &ts);
 	cat->last = ts.tv_sec;
 }

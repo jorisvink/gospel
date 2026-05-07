@@ -73,7 +73,7 @@ gospel_liturgy_new(struct chat *chat, u_int16_t group, int sig)
 		return (-1);
 	}
 
-	if ((lit->timer = weechat_hook_timer(2000, 0, 0,
+	if ((lit->timer = weechat_hook_timer(5000, 0, 0,
 	    liturgy_weechat_manage, lit, NULL)) == NULL) {
 		gospel_log("failed to create new timer hook");
 		gospel_liturgy_free(lit);
