@@ -108,6 +108,13 @@ gospel_liturgy_new(struct chat *chat, u_int16_t group, int sig)
 		}
 	}
 
+	if (kyrka_mtu_size(lit->ctx, 800) == -1) {
+		weechat_printf(NULL, "failed to set mtu: %d",
+		    kyrka_last_error(lit->ctx));
+		gospel_liturgy_free(lit);
+		return (-1);
+	}
+
 	chat->liturgy = lit;
 
 	gospel_log("[liturgy] %" PRIx64 ":%04x (%d) created (cathedral:%p)",

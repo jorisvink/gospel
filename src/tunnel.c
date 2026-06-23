@@ -153,6 +153,13 @@ gospel_tunnel_new(struct chat *chat, u_int64_t flock, u_int8_t peer,
 		}
 	}
 
+	if (kyrka_mtu_size(tun->ctx, 800) == -1) {
+		weechat_printf(NULL, "failed to set mtu: %d",
+		    kyrka_last_error(tun->ctx));
+		gospel_tunnel_free(tun);
+		return (-1);
+	}
+
 	tunnel_alive(tun);
 	gospel_log("[tunnel] %" PRIx64 ":%04x created (cathedral:%p)",
 	    tun->flock, tun->tid, &tun->cathedral);
