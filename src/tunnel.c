@@ -875,7 +875,7 @@ tunnel_weechat_manage(const void *ptr, void *udata, int calls)
 
 	now = gospel_ms();
 
-	if (tun->online == 1 && (now - tun->age) >= 10000) {
+	if (tun->online == 1 && (now - tun->age) >= 30000) {
 		tun->online = 0;
 
 		cbuf = weechat_buffer_search("gospel", tun->chat->name);
