@@ -119,6 +119,7 @@ struct tunnel {
 	u_int16_t		group;
 
 	u_int64_t		age;
+	u_int64_t		next_hb;
 	u_int64_t		next_mgmt;
 
 	u_int64_t		local_uid;
@@ -126,7 +127,9 @@ struct tunnel {
 
 	u_int64_t		flock;
 	u_int8_t		peerid;
+
 	int			online;
+	int			fill_signal;
 	int			p2p_allowed;
 
 	u_int64_t		tx_bytes;

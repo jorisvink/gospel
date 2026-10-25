@@ -318,7 +318,7 @@ static int
 tunnel_configure(struct tunnel *tun, struct kyrka_cathedral_cfg *cfg,
     u_int64_t flock, u_int8_t peer, u_int16_t group)
 {
-	u_int64_t		p2p;
+	u_int64_t		val;
 
 	PRECOND(tun != NULL);
 	PRECOND(cfg != NULL);
@@ -368,10 +368,17 @@ tunnel_configure(struct tunnel *tun, struct kyrka_cathedral_cfg *cfg,
 		return (-1);
 	}
 
-	if (gospel_config_uint64("p2p-enabled", &p2p, 10) == -1 || p2p != 0)
+	if (gospel_config_uint64("p2p-enabled", &val, 10) == -1 || val != 0)
 		tun->p2p_allowed = 1;
 	else
 		tun->p2p_allowed = 0;
+
+	if (gospel_config_uint64("fill-signal", &val, 10) == -1 || val != 1)
+		tun->fill_signal = 0;
+	else
+		tun->fill_signal = 1;
+
+	gospel_log("[cfg] fill signaling is %d (%lu)", tun->fill_signal, val);
 
 	if (group) {
 		cfg->flock_src |= LITANY_FLOCK_GROUP_DOMAIN;
@@ -420,10 +427,8 @@ tunnel_event(KYRKA *ctx, union kyrka_event *evt, void *udata)
 			online = 0;
 		}
 
-		if (online) {
-			tun->online = 1;
+		if (online)
 			tunnel_alive(tun);
-		}
 		break;
 	case KYRKA_EVENT_EXCHANGE_INFO:
 		gospel_tunnel_log(tun, "[exchange]: %s", evt->exchange.reason);
@@ -776,15 +781,23 @@ static void
 tunnel_msg_send(struct tunnel *tun)
 {
 	size_t			len;
+	u_int64_t		now;
 	struct kyrka_packet	pkt;
 	struct litany_msg	*msg;
 	u_int8_t		*data;
 
 	PRECOND(tun != NULL);
 
-	/* XXX - might want to rethink this. */
-	if (TAILQ_EMPTY(&tun->sendq))
-		tunnel_hb_queue(tun);
+	if (TAILQ_EMPTY(&tun->sendq)) {
+		now = gospel_ms();
+
+		if (tun->fill_signal || now >= tun->next_hb) {
+			tunnel_hb_queue(tun);
+			tun->next_hb = now + 12000;
+		} else {
+			return;
+		}
+	}
 
 	msg = TAILQ_FIRST(&tun->sendq);
 	VERIFY(msg != NULL);
