@@ -378,8 +378,6 @@ tunnel_configure(struct tunnel *tun, struct kyrka_cathedral_cfg *cfg,
 	else
 		tun->fill_signal = 1;
 
-	gospel_log("[cfg] fill signaling is %d (%lu)", tun->fill_signal, val);
-
 	if (group) {
 		cfg->flock_src |= LITANY_FLOCK_GROUP_DOMAIN;
 		cfg->flock_dst = flock | LITANY_FLOCK_GROUP_DOMAIN;
