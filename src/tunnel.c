@@ -606,6 +606,7 @@ tunnel_alive(struct tunnel *tun)
 {
 	PRECOND(tun != NULL);
 
+	tun->online = 1;
 	tun->age = gospel_ms();
 }
 
